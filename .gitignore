@@ -1,0 +1,19 @@
+/.bundle/
+/vendor/bundle/
+/coverage/
+/pkg/
+*.gem
+
+# Dummy app
+/test/dummy/log/
+/test/dummy/tmp/
+/test/dummy/storage/
+/test/dummy/db/*.sqlite3
+/test/dummy/db/*.sqlite3-*
+
+# Credentials & secrets
+/test/dummy/config/credentials.yml.enc
+/test/dummy/config/master.key
+
+# Local Claude overrides (personal, not shared)
+/.claude/settings.local.json

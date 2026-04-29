@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(git commit*)",
+            "command": "cd /home/jquar/projects/koraci && bundle exec rubocop --autocorrect 2>&1 || true",
+            "statusMessage": "Running RuboCop autocorrect..."
+          }
+        ]
+      }
+    ]
+  }
+}

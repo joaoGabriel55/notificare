@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "bundler/setup"
+
+ARGV.unshift("--seed", "0") unless ARGV.include?("--seed")
+
+require "rake"
+load File.expand_path("../Rakefile", __dir__)
+Rake::Task["test"].invoke
