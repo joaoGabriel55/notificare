@@ -15,3 +15,7 @@ require "rails/test_help"
 require "active_support/test_case"
 
 ActiveRecord::Migrator.migrations_paths = [ File.expand_path("../test/dummy/db/migrate", __dir__) ]
+
+ActiveRecord::MigrationContext.new(
+  ActiveRecord::Migrator.migrations_paths
+).migrate
