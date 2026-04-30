@@ -1,0 +1,1 @@
+Commit each changed file (or logical group of files) with a meaningful, descriptive commit message that keeps the project versioning clear and easy to review. After all commits are created, push them to the remote branch.
