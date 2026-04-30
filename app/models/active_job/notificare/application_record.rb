@@ -1,5 +1,5 @@
 module ActiveJob
-  module Progress
+  module Notificare
     class ApplicationRecord < ::ActiveRecord::Base
       self.abstract_class = true
     end

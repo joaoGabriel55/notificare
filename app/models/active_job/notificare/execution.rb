@@ -1,5 +1,5 @@
 module ActiveJob
-  module Progress
+  module Notificare
     class Execution < ApplicationRecord
       self.table_name = "active_job_executions"
 

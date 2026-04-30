@@ -1,5 +1,5 @@
 Rails.application.routes.draw do
-  mount ActiveJob::Progress::Engine, at: "/active_job_progress"
+  mount ActiveJob::Notificare::Engine, at: "/active_job_notificare"
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

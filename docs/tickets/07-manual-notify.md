@@ -6,8 +6,8 @@ Custom milestone notifications from inside a job, plus the loud-failure contract
 ## Scope
 - Instance method `notify(title:, description: nil, metadata: {}, actions: [])` on jobs that include the concern. Writes a `Notification` row with `event_type: "custom"`, `recipient` resolved from the job's `recipient:` arg, `job_id` set.
 - ERD §9 case 5: `notify(...)` after job completion is allowed — write directly, do not hinge on lifecycle hooks.
-- Recipient enforcement: at enqueue time, if the job class declared `notify_on` *or* the source contains a call to `notify(`, require a `recipient:` keyword. Missing → raise `ArgumentError("ImportJob requires a `recipient:` keyword argument")`. Implement via an `enqueue` callback that introspects the job's arguments.
-  - Detection of "uses `notify`" should be explicit: a class-level flag set when the concern detects a `notify` call site or the job opts in via `notifies_manually!` (escape hatch). Static parsing is brittle — prefer the explicit flag.
+- Recipient enforcement: implemented via `ActiveJob::Notificare::Recipient` as an `around_enqueue` callback. Triggered when the job class declared `notify_on`, `uses_notify?` is true, or any `step(notify:)` was declared. Missing `recipient:` keyword → raise `ArgumentError("ImportJob requires a `recipient:` keyword argument")` *before* the adapter receives the job.
+  - Detection of "uses `notify`" should be explicit: `uses_notify?` flips to true the first time `notify(...)` is called inside `perform`, and the job opts in eagerly via `uses_notify!` (escape hatch for static enqueue-time enforcement). Static parsing is brittle — prefer the explicit flag.
 - `recipient:` accepts any object responding to `to_global_id`. Stored as `recipient_type`/`recipient_id`.
 
 ## Acceptance criteria
