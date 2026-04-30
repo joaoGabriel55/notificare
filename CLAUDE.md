@@ -46,6 +46,7 @@ lib/
   active_job/notificare/concern.rb       # ActiveSupport::Concern; auto-includes ActiveJob::Continuable + StepDSL
   active_job/notificare/step_dsl.rb      # wraps Continuation's `step` with notify: kwarg; stashes per-step events
   active_job/notificare/progress_handle.rb  # ProgressHandle — total(n) / advance!(by=1)
+  active_job/notificare/recipient.rb        # Recipient — around_enqueue enforcement of recipient: kwarg
   active_job/notificare/version.rb
   generators/…                           # install generator (active_job:notificare:install)
 app/
@@ -78,9 +79,13 @@ Exception info is available in `event.payload[:exception_object]` because `Activ
 
 ### Concern + Step DSL
 
-`include ActiveJob::Notificare` is the single seam. The concern auto-includes `ActiveJob::Continuable` (Continuation's includable concern) and `StepDSL`. `StepDSL#step(name, notify: ..., **opts, &block)` pops `notify:` out of the kwargs, stashes it on the job instance keyed by step name (`@_notificare_step_notify`), and forwards everything else to Continuation's `step`. The `step_completed.active_job` handler reads the stash off `event.payload[:job]` via `notificare_step_notify_for(step_name)`.
+`include ActiveJob::Notificare` is the single seam. The concern auto-includes `ActiveJob::Continuable` (Continuation's includable concern), `StepDSL`, and `Recipient`. `StepDSL#step(name, notify: ..., **opts, &block)` pops `notify:` out of the kwargs, stashes it on the job instance keyed by step name (`@_notificare_step_notify`), and forwards everything else to Continuation's `step`. The `step_completed.active_job` handler reads the stash off `event.payload[:job]` via `notificare_step_notify_for(step_name)`. Calling `step(notify:)` also sets a class-level `@_has_step_notifications` flag (read by `has_step_notifications?`) which is used by `Recipient` for enqueue-time enforcement.
 
 The `notify:` stash is read in the `step.active_job` subscriber (ticket 06). Rows are written only when the step completed without exception and was not interrupted.
+
+**`notify(title:, description: nil, metadata: {}, actions: [])` instance method**: writes a `Notification` row with `event_type: "custom"` directly — does not rely on lifecycle hooks, so it is safe to call at any point during or after `perform` (ERD §9 case 5). Silently skips if `self.recipient` is nil. Also flips `self.class.uses_notify!` on first call so subsequent enqueues of that job class are subject to recipient enforcement.
+
+**`uses_notify!` / `uses_notify?` class methods**: `uses_notify!` eagerly opts a job class into enqueue-time recipient enforcement (call it at class definition if you know the job will call `notify` but want the `ArgumentError` to fire on the very first enqueue, before any instance has run). `uses_notify?` returns true after `uses_notify!` is called or after any instance has called `notify(...)`.
 
 ### Notification model
 
@@ -96,7 +101,7 @@ The `notify:` stash is read in the `step.active_job` subscriber (ticket 06). Row
 
 **Step-level notifications**: `step(:name, notify: :sym)` or `step(:name, notify: { event:, title:, description:, metadata: })` in the job's `perform`. The `step.active_job` subscriber writes a `Notification` row with `event_type: "custom"` when the step completes without error. Hash form allows full override of title, description, and extra metadata keys.
 
-**Recipient**: set via `self.recipient = <record>` inside `perform`. If nil at write time, the write is silently skipped (enforcement that it must be present at enqueue time lands in ticket 07).
+**Recipient**: set via `self.recipient = <record>` inside `perform`. If nil at write time, the write is silently skipped. Enqueue-time enforcement is provided by `ActiveJob::Notificare::Recipient` (`lib/active_job/notificare/recipient.rb`): an `around_enqueue` callback that raises `ArgumentError` before the adapter receives the job when `recipient:` is missing and the job has opted into notifications (via `notify_on`, `uses_notify!`, or `has_step_notifications?`). `recipient:` must be passed as a keyword argument to `perform_later`; it is detected by inspecting `self.arguments` for a hash with a `:recipient` or `"recipient"` key.
 
 ### Execution model
 
@@ -117,6 +122,8 @@ The `notify:` stash is read in the `step.active_job` subscriber (ticket 06). Row
 - `FailingNotifyOnTestJob` — same as above but raises `StandardError` in `perform`
 - `StepNotifyTestJob` — three steps: `:validate` (notify: :validated), `:process` (notify: hash form), `:finalize` (no notify)
 - `FailingStepNotifyTestJob` — `:ok_step` (notify: :ok_done) succeeds; `:boom_step` raises
+- `ManualNotifyTestJob` — uses `notify_on :completed`; calls `notify(title:, description:, metadata:, actions:)` inside `perform` for ticket-07 coverage
+- `UsesNotifyTestJob` — calls `uses_notify!` at class definition; used to verify enqueue-time enforcement before any instance has run
 
 `ProjectionTest` uses `include ActiveJob::TestHelper` and `perform_enqueued_jobs` (not `with_queue_adapter`, which doesn't exist in this Rails version) to drive integration paths.
 
