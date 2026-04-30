@@ -13,6 +13,9 @@ module ActiveJob
         unless ::Notificare.const_defined?(:Execution, false)
           ::Notificare.const_set(:Execution, ActiveJob::Notificare::Execution)
         end
+        unless ::Notificare.const_defined?(:Notification, false)
+          ::Notificare.const_set(:Notification, ActiveJob::Notificare::Notification)
+        end
       end
     end
   end

@@ -52,6 +52,7 @@ app/
   models/active_job/notificare/
     application_record.rb         # engine's abstract base record
     execution.rb                  # ActiveRecord model for active_job_executions
+    notification.rb               # ActiveRecord model for active_job_notifications
   views/active_job/notificare/    # shared view partials (stub; populated by install generator)
 ```
 
@@ -64,8 +65,8 @@ app/
 | `enqueue.active_job` | `find_or_create_by!(job_id:)` with `status: enqueued`; rescues `RecordNotUnique` for race safety |
 | `perform_start.active_job` | if already `running` (resume path): clear stale error, preserve `progress_current`/`started_at`; otherwise set `status: running, started_at` |
 | `step_started.active_job` | mirror `step.name` onto `current_step`; fired by `ActiveJob::Continuation` at each step boundary |
-| `step_completed.active_job` | reads `notify:` value stashed by `StepDSL` for this step name; logs a "would-write notification" line (row write lands in ticket 06) |
-| `perform.active_job` | update to `completed` or `failed`; capture `exception_object.message` into `error` |
+| `step.active_job` | fired by `ActiveJob::Continuation` after each step finishes (success or failure). If step completed without exception and not interrupted, reads the `notify:` value stashed by `StepDSL` and writes a `Notification` row |
+| `perform.active_job` | update to `completed` or `failed`; capture `exception_object.message` into `error`; write lifecycle `Notification` row if `notify_on` declared the matching event |
 
 All handlers are gated on `job.class.tracks_progress?` — under the new umbrella, including `ActiveJob::Notificare` flips this to true by default; `tracks_progress false` opts out. Jobs without the include (or with `tracks_progress?` returning false) produce no rows.
 
@@ -79,7 +80,23 @@ Exception info is available in `event.payload[:exception_object]` because `Activ
 
 `include ActiveJob::Notificare` is the single seam. The concern auto-includes `ActiveJob::Continuable` (Continuation's includable concern) and `StepDSL`. `StepDSL#step(name, notify: ..., **opts, &block)` pops `notify:` out of the kwargs, stashes it on the job instance keyed by step name (`@_notificare_step_notify`), and forwards everything else to Continuation's `step`. The `step_completed.active_job` handler reads the stash off `event.payload[:job]` via `notificare_step_notify_for(step_name)`.
 
-The Notification row write is **deferred to ticket 06**. For now, the handler logs the would-write line. This keeps the wiring stable so ticket 06 only adds the row-write code.
+The `notify:` stash is read in the `step.active_job` subscriber (ticket 06). Rows are written only when the step completed without exception and was not interrupted.
+
+### Notification model
+
+`ActiveJob::Notificare::Notification` (`app/models/active_job/notificare/notification.rb`):
+- Polymorphic `belongs_to :recipient` (resolved from `job.recipient` at write time)
+- `event_type` enum: `{ completed: "completed", failed: "failed", custom: "custom" }` — `custom` is used for step-level events
+- `metadata` stored as JSON text (SQLite); contains at minimum `{ "event" => "<event_name>" }` for custom rows
+- `read?` / `dismissed?` predicates; `mark_read!` / `dismiss!` state transitions
+- Default scope: `order(created_at: :desc)`; named scopes: `unread`, `visible` (not dismissed)
+- `Notificare::Notification` alias registered in `config.to_prepare`
+
+**`notify_on` DSL** (on the job class): `notify_on :completed, :failed` registers which lifecycle events auto-write a row. Registered list is stored as `@_notificare_notify_on` and read via `notificare_notify_on`. The row's title defaults to `"<JobClass> <event_type>"` and description carries the exception message for `failed` rows.
+
+**Step-level notifications**: `step(:name, notify: :sym)` or `step(:name, notify: { event:, title:, description:, metadata: })` in the job's `perform`. The `step.active_job` subscriber writes a `Notification` row with `event_type: "custom"` when the step completes without error. Hash form allows full override of title, description, and extra metadata keys.
+
+**Recipient**: set via `self.recipient = <record>` inside `perform`. If nil at write time, the write is silently skipped (enforcement that it must be present at enqueue time lands in ticket 07).
 
 ### Execution model
 
@@ -96,10 +113,16 @@ The Notification row write is **deferred to ticket 06**. For now, the handler lo
 - `UntrackedTestJob` — no `tracks_progress?`; expects zero execution rows
 - `ProgressDslTestJob` — uses `include ActiveJob::Notificare`; calls `progress.total` and `progress.advance!` in `perform`
 - `StepDslTestJob` — uses `include ActiveJob::Notificare`; declares `step(:validate, notify: :validated)` and `step(:finalize)` for StepDSL coverage
+- `NotifyOnTestJob` — uses `notify_on :completed, :failed`; sets `self.recipient` from a `recipient:` kwarg
+- `FailingNotifyOnTestJob` — same as above but raises `StandardError` in `perform`
+- `StepNotifyTestJob` — three steps: `:validate` (notify: :validated), `:process` (notify: hash form), `:finalize` (no notify)
+- `FailingStepNotifyTestJob` — `:ok_step` (notify: :ok_done) succeeds; `:boom_step` raises
 
 `ProjectionTest` uses `include ActiveJob::TestHelper` and `perform_enqueued_jobs` (not `with_queue_adapter`, which doesn't exist in this Rails version) to drive integration paths.
 
-Continuation step events are simulated in unit tests using `fake_step(name)` (a `Struct.new(:name)` double) passed directly to `instrument("step_started.active_job", ...)` / `instrument("step_completed.active_job", ...)`. This avoids needing a real running Continuation in unit tests while exercising the exact same event payload shape.
+Continuation step events are simulated in unit tests using `fake_step(name)` (a `Struct.new(:name)` double) passed to `instrument("step_started.active_job", ...)` / `instrument("step.active_job", job:, step:, interrupted: false)`. Note: `ActiveJob::Continuation` fires `step.active_job` (not `step_completed.active_job`) after each step block finishes; the payload includes `interrupted:` and `exception_object` (set by AS::Notifications when the block raises).
+
+**Important**: `ActiveJob::Continuable#continue` rescues `StandardError` and calls `retry_job(wait: 5.seconds)` when `continuation.advanced?` is true (at least one step completed). This means a step-raising job does NOT re-raise in tests — `perform_enqueued_jobs` returns without error and the retry is scheduled in the future. Use plain `perform_enqueued_jobs` (no `assert_raises`) for jobs that fail mid-step after making progress.
 
 ## Key conventions
 
