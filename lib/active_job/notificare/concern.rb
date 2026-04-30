@@ -21,7 +21,22 @@ module ActiveJob
       def tracks_progress?
         @tracks_progress != false
       end
+
+      # Declare which lifecycle events auto-write a Notification row.
+      # Accepted values: :completed, :failed (or both).
+      def notify_on(*event_types)
+        @_notificare_notify_on = event_types.map(&:to_sym)
+      end
+
+      def notificare_notify_on
+        @_notificare_notify_on || []
+      end
     end
+
+    # The polymorphic recipient for notifications. Job authors set this inside
+    # perform (e.g. `self.recipient = recipient`). Enforcement that it is
+    # present at enqueue time lands in ticket 07.
+    attr_accessor :recipient
 
     def progress
       @progress ||= ProgressHandle.new(job_id)

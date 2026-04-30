@@ -29,49 +29,32 @@ class ActiveJob::Notificare::StepDslTest < ActiveSupport::TestCase
     assert_nil job.notificare_step_notify_for(:never_set)
   end
 
-  test "step_completed.active_job logs the would-write notification when notify: was declared" do
+  test "step.active_job does not write a notification row when job has no recipient" do
     job = StepDslTestJob.new
     job.send(:step, :validate, notify: :validated) { :ok }
 
-    log_output = StringIO.new
-    original_logger = Rails.logger
-    Rails.logger = Logger.new(log_output, level: Logger::DEBUG)
-    begin
+    assert_no_difference -> { ActiveJob::Notificare::Notification.count } do
       step = Struct.new(:name).new(:validate)
-      ActiveSupport::Notifications.instrument("step_completed.active_job", job: job, step: step)
-    ensure
-      Rails.logger = original_logger
+      ActiveSupport::Notifications.instrument("step.active_job", job: job, step: step, interrupted: false)
     end
-    assert_match(/would-write notification event=:validated/, log_output.string)
   end
 
-  test "step_completed.active_job is silent when no notify: was declared for the step" do
+  test "step.active_job does not write a row when no notify: was declared for the step" do
     job = StepDslTestJob.new
     job.send(:step, :foo) { :ok }
 
-    log_output = StringIO.new
-    original_logger = Rails.logger
-    Rails.logger = Logger.new(log_output, level: Logger::DEBUG)
-    begin
+    assert_no_difference -> { ActiveJob::Notificare::Notification.count } do
       step = Struct.new(:name).new(:foo)
-      ActiveSupport::Notifications.instrument("step_completed.active_job", job: job, step: step)
-    ensure
-      Rails.logger = original_logger
+      ActiveSupport::Notifications.instrument("step.active_job", job: job, step: step, interrupted: false)
     end
-    refute_match(/would-write notification/, log_output.string)
   end
 
-  test "untracked job does not trigger step_completed handler" do
+  test "untracked job does not write a notification row on step.active_job" do
     job = UntrackedTestJob.new
-    log_output = StringIO.new
-    original_logger = Rails.logger
-    Rails.logger = Logger.new(log_output, level: Logger::DEBUG)
-    begin
+
+    assert_no_difference -> { ActiveJob::Notificare::Notification.count } do
       step = Struct.new(:name).new(:foo)
-      ActiveSupport::Notifications.instrument("step_completed.active_job", job: job, step: step)
-    ensure
-      Rails.logger = original_logger
+      ActiveSupport::Notifications.instrument("step.active_job", job: job, step: step, interrupted: false)
     end
-    refute_match(/would-write notification/, log_output.string)
   end
 end

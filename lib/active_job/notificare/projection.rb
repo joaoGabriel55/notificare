@@ -46,19 +46,19 @@ module ActiveJob
           Execution.find_by(job_id: job.job_id)&.update!(current_step: step.name.to_s)
         end
 
-        # Step completed without interruption. If StepDSL stashed a `notify:` value for this
-        # step, log it for now — actual Notification row write lands in ticket 06.
-        SUBSCRIPTIONS << ActiveSupport::Notifications.subscribe("step_completed.active_job") do |event|
+        # ActiveJob::Continuation fires `step.active_job` (not `step_completed`) after each step's
+        # block finishes (whether successfully or with an exception). Only write a notification
+        # when the step completed without error and was not interrupted.
+        SUBSCRIPTIONS << ActiveSupport::Notifications.subscribe("step.active_job") do |event|
+          next if event.payload[:exception_object]
+          next if event.payload[:interrupted]
+
           job = event.payload[:job]
           next unless tracks_progress?(job)
 
           step = event.payload[:step]
           notify_event = job.respond_to?(:notificare_step_notify_for) ? job.notificare_step_notify_for(step.name) : nil
-          if notify_event
-            Rails.logger.debug do
-              "[notificare] step_completed step=#{step.name} would-write notification event=#{notify_event.inspect}"
-            end
-          end
+          write_step_notification(job, step.name, notify_event) if notify_event
         end
 
         SUBSCRIPTIONS << ActiveSupport::Notifications.subscribe("perform.active_job") do |event|
@@ -70,8 +70,10 @@ module ActiveJob
 
           if (exception = event.payload[:exception_object])
             execution.update!(status: "failed", completed_at: Time.current, error: exception.message)
+            write_lifecycle_notification(job, :failed, exception.message) if notifies_on?(job, :failed)
           else
             execution.update!(status: "completed", completed_at: Time.current)
+            write_lifecycle_notification(job, :completed) if notifies_on?(job, :completed)
           end
         end
       end
@@ -85,6 +87,59 @@ module ActiveJob
         job.class.respond_to?(:tracks_progress?) && job.class.tracks_progress?
       end
       private_class_method :tracks_progress?
+
+      def self.notifies_on?(job, event_type)
+        job.class.respond_to?(:notificare_notify_on) && job.class.notificare_notify_on.include?(event_type)
+      end
+      private_class_method :notifies_on?
+
+      def self.recipient_for(job)
+        job.respond_to?(:recipient) ? job.recipient : nil
+      end
+      private_class_method :recipient_for
+
+      def self.write_lifecycle_notification(job, event_type, description = nil)
+        recipient = recipient_for(job)
+        return unless recipient
+
+        Notification.create!(
+          recipient: recipient,
+          job_id: job.job_id,
+          event_type: event_type.to_s,
+          title: "#{job.class.name} #{event_type}",
+          description: description
+        )
+      end
+      private_class_method :write_lifecycle_notification
+
+      def self.write_step_notification(job, step_name, notify_event)
+        recipient = recipient_for(job)
+        return unless recipient
+
+        Notification.create!(build_step_notification_attrs(job, step_name, notify_event))
+      end
+      private_class_method :write_step_notification
+
+      def self.build_step_notification_attrs(job, step_name, notify_event)
+        base = { recipient: recipient_for(job), job_id: job.job_id, event_type: "custom" }
+
+        case notify_event
+        when Symbol
+          base.merge(
+            title: "#{job.class.name}: #{notify_event}",
+            metadata: { "event" => notify_event.to_s }
+          )
+        when Hash
+          event = notify_event[:event] || step_name
+          extra_metadata = notify_event[:metadata]&.transform_keys(&:to_s) || {}
+          base.merge(
+            title: notify_event[:title] || "#{job.class.name}: #{event}",
+            description: notify_event[:description],
+            metadata: { "event" => event.to_s }.merge(extra_metadata)
+          )
+        end
+      end
+      private_class_method :build_step_notification_attrs
     end
   end
 end
