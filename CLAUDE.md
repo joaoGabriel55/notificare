@@ -37,12 +37,14 @@ Tests run against a SQLite dummy Rails app in `test/dummy/`. Migrations are appl
 
 ```
 lib/
-  active_job/progress.rb          # entry point; requires engine + projection
-  active_job/progress/engine.rb   # Rails::Engine (isolated_namespace); calls Projection.subscribe! on init
-  active_job/progress/projection.rb  # AS::Notifications subscriber
+  active_job/progress.rb              # entry point; requires engine, progress_handle, concern
+  active_job/progress/engine.rb       # Rails::Engine (isolated_namespace); calls Projection.subscribe! on init
+  active_job/progress/projection.rb   # AS::Notifications subscriber
+  active_job/progress/concern.rb      # ActiveSupport::Concern; tracks_progress macro + progress accessor
+  active_job/progress/progress_handle.rb  # ProgressHandle — total(n) / advance!(by=1)
   active_job/progress/version.rb
-  koraci.rb                       # requires active_job/progress; defines Koraci module (alias target)
-  generators/…                    # install generator
+  koraci.rb                           # requires active_job/progress; defines Koraci module (alias target)
+  generators/…                        # install generator
 app/
   models/active_job/progress/
     application_record.rb         # engine's abstract base record
@@ -60,7 +62,7 @@ app/
 | `perform_start.active_job` | update to `status: running`, set `started_at` |
 | `perform.active_job` | update to `completed` or `failed`; capture `exception_object.message` into `error` |
 
-All handlers are gated on `job.class.tracks_progress?` — jobs without this method (or returning false) produce no rows. The gate is the primary opt-in mechanism; the DSL concern (ticket 04) will define this method.
+All handlers are gated on `job.class.tracks_progress?` — jobs without this method (or returning false) produce no rows. The gate is the primary opt-in mechanism; job authors opt in via `include ActiveJob::Progress` + `tracks_progress` (see `concern.rb`).
 
 Exception info is available in `event.payload[:exception_object]` because `ActiveSupport::Notifications#instrument` itself rescues and re-raises, adding exception data to the payload before notifying subscribers.
 
@@ -79,12 +81,13 @@ Exception info is available in `event.payload[:exception_object]` because `Activ
 - `TrackedTestJob` — opts in via `def self.tracks_progress? = true`
 - `FailingTrackedTestJob` — opts in and raises `StandardError`
 - `UntrackedTestJob` — no `tracks_progress?`; expects zero execution rows
+- `ProgressDslTestJob` — uses `include ActiveJob::Progress` + `tracks_progress`; calls `progress.total` and `progress.advance!` in `perform`
 
 `ProjectionTest` uses `include ActiveJob::TestHelper` and `perform_enqueued_jobs` (not `with_queue_adapter`, which doesn't exist in this Rails version) to drive integration paths.
 
 ## Key conventions
 
 - **No monkey-patching.** All hooks go through `ActiveSupport::Notifications`. If an upstream Continuable event is missing, open a PR there.
-- **`tracks_progress?` is the opt-in gate.** Default is falsy (method absent). Ticket 04 will add the DSL that defines it as `true`.
+- **`tracks_progress?` is the opt-in gate.** Default is falsy (method absent). Define it by including `ActiveJob::Progress` and calling `tracks_progress` in the job class body.
 - **Rubocop uses `rubocop-rails-omakase`**, configured in `.rubocop.yml`. `test/dummy/` is excluded from linting.
 - The `test/dummy/` Gemfile is separate from the gem's Gemfile; do not add test dependencies there.
