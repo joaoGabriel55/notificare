@@ -1,11 +1,11 @@
 # 03 — Execution model & AS::Notifications projection
 
 ## Goal
-A `Koraci::Execution` (alias `ActiveJob::Progress::Execution`) row is created/updated purely from `ActiveSupport::Notifications` events emitted by Active Job. No monkey-patching.
+An `ActiveJob::Notificare::Execution` (also exposed as `Notificare::Execution`) row is created/updated purely from `ActiveSupport::Notifications` events emitted by Active Job and `ActiveJob::Continuation`. No monkey-patching.
 
 ## Scope
-- `app/models/active_job/progress/execution.rb` with status enum (`enqueued | running | completed | failed`), associations to notifications via `job_id`, scopes (`recent`, `running`, `failed`).
-- `lib/active_job/progress/projection.rb` — subscriber attached to `enqueue.active_job`, `perform_start.active_job`, `perform.active_job`, and the Continuable step events (`step_start.active_job_continuable`, `step_complete.active_job_continuable` — exact names confirmed via Continuable source/PR upstream if they differ).
+- `app/models/active_job/notificare/execution.rb` with status enum (`enqueued | running | completed | failed`), associations to notifications via `job_id`, scopes (`recent`, `running`, `failed`).
+- `lib/active_job/notificare/projection.rb` — subscriber attached to `enqueue.active_job`, `perform_start.active_job`, `perform.active_job`, and the `ActiveJob::Continuation` step events (`step_started.active_job`, `step_completed.active_job`).
 - Status transitions on each event; `started_at` / `completed_at` timestamps; `error` text captured from `event.payload[:exception_object]`.
 - Subscriber gated on `job.class.tracks_progress?` (returns false until ticket 04 lands; default false keeps things inert).
 

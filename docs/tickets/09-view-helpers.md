@@ -1,11 +1,11 @@
 # 09 — View helpers
 
 ## Goal
-Drop-in helpers from ERD §5: `active_job_progress(execution)` and `active_job_notifications(for: current_user)`.
+Drop-in helpers from ERD §5: `active_job_notificare(execution)` and `active_job_notifications(for: current_user)`.
 
 ## Scope
-- `app/helpers/active_job/progress/view_helpers.rb` registered on `ActionView::Base`.
-- `active_job_progress(execution)`:
+- `app/helpers/active_job/notificare/view_helpers.rb` registered on `ActionView::Base`.
+- `active_job_notificare(execution)`:
   - Determinate (`progress_total` set): renders `<progress>` with `current/total`, percentage label, and current step.
   - Indeterminate (`progress_total` nil): renders a spinner with the current step.
   - Subscribes to the execution stream from ticket 08 via `turbo_stream_from`.

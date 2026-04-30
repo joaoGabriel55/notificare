@@ -1,10 +1,10 @@
-# Engineering Requirements Document — ActiveJob Progress
+# Engineering Requirements Document — ActiveJob Notificare
 
-**Working name:** `koraci` (Bosnian for "steps")
+**Working name:** `notificare` (Romanian: *"to notify"*)
 
-**Tagline:** First-class progress tracking and a notification inbox for Active Job.
+**Tagline:** Progress tracking and a notification inbox for `ActiveJob::Continuation`.
 
-**Positioning (one line):** A projection layer over `ActiveJob::Continuable`. Continuable owns execution and continuation state; this gem owns the persisted projection of progress, a small notification inbox primitive, and the Hotwire UI for both.
+**Positioning (one line):** A projection layer over `ActiveJob::Continuation`. Continuation owns execution and step-resume state; this gem owns the persisted projection of progress, the notification inbox, and the Hotwire UI for both — wired up so step boundaries become a state machine that drives notifications.
 
 ---
 
@@ -27,11 +27,12 @@ Mental model: *Active Storage, but for job progress — plus a small inbox for w
 
 ## 2. Problem Statement
 
-`ActiveJob::Continuable` provides resumable jobs. It does **not** provide:
+`ActiveJob::Continuation` (shipped in Rails 8.1) provides resumable jobs with declarative `step` boundaries. It does **not** provide:
 
 - a persisted, queryable projection of running-job state
 - a place to record durable, user-facing notifications when those jobs finish (or hit milestones)
 - realtime UI for either of those things
+- a way to declare per-step notification events without writing inbox plumbing
 
 Long-running product operations — file uploads, imports, exports, batch processing — need both: a *live* progress view while running, and a *durable* notification afterward ("your import finished," "your export failed"). Rails has the primitives. This gem fills the gap with two small concepts and nothing more.
 
@@ -49,7 +50,7 @@ Stored in `active_job_executions`.
 
 ### Notifications (durable)
 
-A user-facing record that *something happened* — usually that a job completed or failed, but the gem also exposes a manual API so developers can write notifications for any milestone they care about. Read/unread, dismissible, with optional custom actions.
+A user-facing record that *something happened* — usually that a job completed, failed, or transitioned through a named step, but the gem also exposes a manual API so developers can write notifications for any milestone they care about. Read/unread, dismissible, with optional custom actions.
 
 Stored in `active_job_notifications`.
 
@@ -62,10 +63,10 @@ These are intentionally separate. Progress is "is the thing still going?" Notifi
 ### Surface 1 — Mounted engine (admin-flavored)
 
 ```ruby
-mount ActiveJob::Progress::Engine => "/job_progress"
+mount ActiveJob::Notificare::Engine => "/notificare"
 ```
 
-One per app. For developers and ops. Lists recent executions, shows individual execution status. Spirit of Mission Control Jobs. Path defaults to `/job_progress` to avoid colliding with Mission Control if both are mounted.
+One per app. For developers and ops. Lists recent executions, shows individual execution status. Spirit of Mission Control Jobs. Path defaults to `/notificare` to avoid colliding with Mission Control if both are mounted.
 
 ### Surface 2 — Embedded product UI
 
@@ -79,42 +80,74 @@ The scaffold generator (§8) is mostly about Surface 2.
 
 ### Job DSL
 
+`include ActiveJob::Notificare` is the **single seam** — it auto-includes `ActiveJob::Continuable` (Continuation's includable concern) and layers progress tracking, the step DSL, and notification primitives on top.
+
 ```ruby
 class ImportJob < ApplicationJob
-  include ActiveJob::Continuable
-  include ActiveJob::Progress
+  include ActiveJob::Notificare
 
-  tracks_progress
   notify_on :completed, :failed
 
-  step :import_rows do |step|
-    progress.total(rows.count)
+  def perform(import_id, recipient:)
+    @import = Import.find(import_id)
 
-    rows.each do |row|
-      import(row)
-      progress.advance!
+    step(:validate, notify: :validated) do
+      @import.validate!
     end
+
+    step(:import_rows) do |step|
+      progress.total(@import.rows.count)
+      @import.rows.find_each(start: step.cursor) do |row|
+        row.import
+        progress.advance!
+        step.advance! from: row.id
+      end
+    end
+
+    step :finalize
+  end
+
+  def finalize
+    @import.finalize!
   end
 end
 ```
 
 Surface area for job authors:
 
-- `tracks_progress` — opt in to the execution projection and broadcasting
-- `progress.total(n)` — declare expected work (optional; omit for indeterminate)
-- `progress.advance!(by = 1)` — increment within a Continuable step
+- `include ActiveJob::Notificare` — opt in (also includes Continuable; tracks_progress defaults to true)
+- `tracks_progress false` — opt out without removing the include
+- `step(name, notify: :event_name, **continuation_opts)` — Continuation's step plus a `notify:` keyword that fires a notification on successful step completion
+- `progress.total(n)` — declare expected work for the in-progress execution row (optional; omit for indeterminate)
+- `progress.advance!(by = 1)` — increment within a step
 - `notify_on :completed, :failed` — declarative auto-notifications on lifecycle events
 - `notify(title:, description:, metadata: {}, actions: [])` — manual notification from anywhere inside the job, for custom milestones
 
-Jobs that opt into notifications (`notify_on` or any call to `notify`) must receive a `recipient:` keyword argument at enqueue time:
+### `step(name, notify:, ...)` semantics
+
+`notify:` declares a state-machine event tied to the step's *successful* completion. The value is a symbol or hash:
 
 ```ruby
-ImportJob.perform_later(file, recipient: current_user)
+step(:validate, notify: :validated) { ... }
+# → on success, writes a Notification with event_type: "custom",
+#   metadata.event = "validated",
+#   title defaulting to "ImportJob: validated".
+
+step(:charge, notify: { event: :charged, title: "Payment captured" }) { ... }
+# → hash form lets you override title/description/metadata fields directly.
 ```
 
-`recipient` accepts any object responding to `to_global_id` (typically an Active Record model). Enqueuing such a job without `recipient:` raises `ArgumentError`. Jobs that don't opt into notifications are unaffected.
+Failure semantics: if the step raises (including `ActiveJob::Continuation::Interrupt`), no step-level notification is written. Lifecycle-level `failed` notifications still fire via `notify_on`.
 
-**Steps are Continuable steps.** No parallel step concept. `progress.advance!` provides finer-grained tracking *inside* a step (e.g., across 10,000 rows); the current step name comes from Continuable.
+### Recipient enforcement
+
+Jobs that opt into notifications (`notify_on`, any call to `notify(...)`, or any `step(notify:)`) must receive a `recipient:` keyword argument at enqueue time:
+
+```ruby
+ImportJob.perform_later(file_id, recipient: current_user)
+```
+
+`recipient` accepts any object responding to `to_global_id` (typically an Active Record model). Enqueuing such a job without `recipient:` raises `ArgumentError` *before* the adapter receives it. Jobs that don't opt into notifications are unaffected.
 
 ### View helpers
 
@@ -123,7 +156,16 @@ ImportJob.perform_later(file, recipient: current_user)
 <%= active_job_notifications(for: current_user) %>
 ```
 
-Both are Turbo-stream-subscribed and update live without manual broadcast calls.
+Both subscribe to Turbo Streams (see §7) and update live without manual broadcast calls.
+
+### Stable Turbo stream names (public surface)
+
+The stream identifiers below are part of the public API — host apps depend on them via `turbo_stream_from`:
+
+- Execution: `["active_job_progress", execution.job_id]`
+- Notifications inbox: `["active_job_notifications", recipient.to_gid_param]`
+
+Stream names are rooted in the table-name domain (not the gem name) so future renames don't churn deployed Turbo subscriptions.
 
 ---
 
@@ -134,10 +176,10 @@ Two tables. One migration. Generated by the install generator.
 ### `active_job_executions`
 
 ```ruby
-job_id:string:index:unique   # Active Job's job_id — join key with Continuable
+job_id:string:index:unique   # Active Job's job_id — join key with Continuation
 job_class:string:index
 status:string                # enqueued | running | completed | failed
-current_step:string          # mirrored from Continuable
+current_step:string          # mirrored from Continuation's step_started event
 progress_current:integer
 progress_total:integer       # nullable — indeterminate when nil
 started_at:datetime
@@ -146,7 +188,7 @@ error:text
 timestamps
 ```
 
-No `continuation_state` column. Continuable persists that itself; duplicating it would create a consistency problem with no good answer.
+No `continuation_state` column. `ActiveJob::Continuation` persists that itself; duplicating it would create a consistency problem with no good answer.
 
 ### `active_job_notifications`
 
@@ -157,7 +199,7 @@ job_id:string:index          # nullable — manual notifications may not tie to 
 event_type:string            # completed | failed | custom
 title:string
 description:text
-metadata:jsonb               # arbitrary developer payload
+metadata:jsonb               # arbitrary developer payload (step `notify:` events land here)
 actions:jsonb                # array of { label:, url:, method: } — optional
 read_at:datetime             # null = unread
 dismissed_at:datetime        # null = visible
@@ -170,7 +212,7 @@ No append-only event log table in v1. Active Support instrumentation already pro
 
 ## 7. Hotwire Integration
 
-Updates broadcast automatically when `active_job_executions` or `active_job_notifications` rows change. No manual `broadcast_*` calls in user code.
+Updates broadcast automatically when `active_job_executions` or `active_job_notifications` rows change. No manual `broadcast_*` calls in user code. The two stream names pinned in §5 are the contract.
 
 The progress helper renders indeterminate (no `total` declared) as a spinner; determinate as a progress bar with `current/total`. The notifications helper renders an inbox: unread items highlighted, "mark as read," "dismiss," "clear all," and any per-notification custom actions defined via the `actions:` argument.
 
@@ -183,7 +225,7 @@ Two generators, both intentionally small.
 ### Install (run once per app)
 
 ```bash
-rails generate active_job:progress:install
+rails generate active_job:notificare:install
 ```
 
 Creates:
@@ -196,7 +238,7 @@ Creates:
 ### Scaffold (run per job class as needed)
 
 ```bash
-rails generate active_job:progress:scaffold ImportJob
+rails generate active_job:notificare:scaffold ImportJob
 ```
 
 Produces a working, customizable example of embedded product UI for a specific job class:
@@ -212,15 +254,16 @@ The generated code is meant to be **edited**. It is starter scaffolding, not a b
 
 ## 9. Lifecycle & Failure Behavior
 
-The projection hooks via Active Support instrumentation around Active Job and Continuable. No monkey-patching of Continuable internals. If Continuable lacks an event the gem needs, the right fix is a PR upstream.
+The projection hooks via Active Support instrumentation around Active Job and `ActiveJob::Continuation`. No monkey-patching of Continuation internals. If Continuation lacks an event the gem needs, the right fix is a PR upstream.
 
 Cases the implementation must handle explicitly:
 
-1. **No `tracks_progress`** — Continuable runs normally; no execution row, no notifications, no error.
-2. **`tracks_progress` but no `progress.total` / `advance!`** — execution row exists, status transitions work, progress renders as indeterminate. Default for jobs whose work isn't naturally countable.
-3. **Resume after crash** — Continuable resumes the job using its `job_id`. The gem looks up the existing execution row by `job_id` and continues updating it. **Does not create a new row on resume.**
+1. **Module not included** — the job runs normally under Active Job; no execution row, no notifications, no error.
+2. **`include ActiveJob::Notificare` without `progress.total` / `advance!`** — execution row exists, status transitions work, progress renders as indeterminate. Default for jobs whose work isn't naturally countable.
+3. **Resume after crash** — Continuation resumes the job using its `job_id`. The gem looks up the existing execution row by `job_id` and continues updating it. **Does not create a new row on resume.** Preserves `progress_current` and `started_at`; clears stale `error`.
 4. **Job opted into notifications but enqueued without `recipient:`** — raises `ArgumentError` at enqueue time. Failing loudly and early is preferred over silently dropping notifications.
 5. **Manual `notify(...)` after job completion** — allowed; written directly to the notifications table without going through lifecycle hooks.
+6. **Step raised before completion** — no step-level notification is written for that step. Lifecycle-level `failed` may still fire via `notify_on :failed` when the job ultimately fails.
 
 ---
 
@@ -244,9 +287,9 @@ Queue-adapter agnostic. Tested against:
 
 ### Layers
 
-**Unit** (Minitest first, Rails-native default; RSpec compatibility nice-to-have): macro behavior, progress arithmetic, projection updates, broadcast triggers, notification creation paths (declarative and manual), read/dismiss state transitions.
+**Unit** (Minitest first, Rails-native default; RSpec compatibility nice-to-have): concern behavior, progress arithmetic, projection updates, step DSL stashing of `notify:`, broadcast triggers, notification creation paths (declarative and manual), read/dismiss state transitions.
 
-**Integration**: real job execution end-to-end — enqueue, run, advance, complete, notify; resume after simulated worker kill; Turbo stream delivery for both progress and notification UIs; generated views render correctly.
+**Integration**: real job execution end-to-end — enqueue, run, step through, advance, complete, notify; resume after simulated worker kill; Turbo stream delivery for both progress and notification UIs; generated views render correctly.
 
 **Generator**: both generators produce code that boots, migrates, and passes a smoke test running a sample job and observing both its execution row and its resulting notification.
 
@@ -256,7 +299,7 @@ Queue-adapter agnostic. Tested against:
 
 ### CI
 
-GitHub Actions matrix across Ruby 3.3+, Rails 8.x, and the three queue adapters, on Postgres and SQLite where applicable. Red CI blocks merge.
+GitHub Actions matrix across Ruby 3.3+, Rails 8.1+, and the three queue adapters, on Postgres and SQLite where applicable. Red CI blocks merge.
 
 ---
 
@@ -270,23 +313,7 @@ Design rule: prefer adding less. Anything public should be designed as if it mig
 
 ## 13. Stretch Goal
 
-If `ActiveJob::Continuable` itself absorbs progress tracking, the eventual usage becomes:
-
-```ruby
-class ImportJob < ApplicationJob
-  include ActiveJob::Continuable
-
-  tracks_progress
-  notify_on :completed, :failed
-
-  step :import_rows do |step|
-    progress.total(rows.count)
-    rows.each { |r| import(r); progress.advance! }
-  end
-end
-```
-
-…with no separate `include`. Keeping this gem a thin projection over Continuable is what makes that future plausible. The notification inbox would likely remain a separate gem-level concern even in that future, since it isn't intrinsically about Active Job.
+If `ActiveJob::Continuation` itself absorbs progress tracking, the umbrella shrinks to the notification inbox concern — which is what gives this gem its name in the first place. The `step(notify:)` state-machine semantics could either move upstream alongside Continuation or remain here as the inbox-driving layer. Either way, the projection-layer posture is what makes that future plausible: this gem never reaches into Continuation's internals.
 
 ---
 
@@ -295,18 +322,18 @@ end
 A Rails developer can:
 
 ```bash
-bundle add activejob-progress
-rails generate active_job:progress:install
+bundle add notificare
+rails generate active_job:notificare:install
 rails db:migrate
-rails generate active_job:progress:scaffold ImportJob
+rails generate active_job:notificare:scaffold ImportJob
 ```
 
-…then add a few lines to an existing Continuable job and get:
+…then `include ActiveJob::Notificare` in an existing Active Job class and get:
 
 - a durable, realtime progress UI embedded in their product
-- a notification inbox for completed/failed jobs and any custom milestones they choose to record
-- an admin status page at `/job_progress`
-- resumable jobs that survive worker crashes
+- a notification inbox for completed/failed jobs, per-step events, and any custom milestones they choose to record
+- an admin status page at `/notificare`
+- resumable jobs that survive worker crashes (via Continuation underneath)
 
 …without writing a custom status table, a custom notifications table, a custom channel, or a custom view.
 

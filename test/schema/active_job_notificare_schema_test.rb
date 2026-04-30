@@ -1,6 +1,6 @@
 require "test_helper"
 
-class ActiveJobProgressSchemaTest < ActiveSupport::TestCase
+class ActiveJobNotificareSchemaTest < ActiveSupport::TestCase
   def connection
     ActiveRecord::Base.connection
   end

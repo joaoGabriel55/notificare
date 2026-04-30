@@ -1,17 +1,17 @@
 require "test_helper"
 
-class ActiveJob::Progress::ProgressHandleTest < ActiveSupport::TestCase
+class ActiveJob::Notificare::ProgressHandleTest < ActiveSupport::TestCase
   setup do
-    ActiveJob::Progress::Projection.unsubscribe!
-    ActiveJob::Progress::Projection.subscribe!
+    ActiveJob::Notificare::Projection.unsubscribe!
+    ActiveJob::Notificare::Projection.subscribe!
     @job = ProgressDslTestJob.new
     ActiveSupport::Notifications.instrument("enqueue.active_job", job: @job)
     ActiveSupport::Notifications.instrument("perform_start.active_job", job: @job)
-    @handle = ActiveJob::Progress::ProgressHandle.new(@job.job_id)
+    @handle = ActiveJob::Notificare::ProgressHandle.new(@job.job_id)
   end
 
   teardown do
-    ActiveJob::Progress::Projection.unsubscribe!
+    ActiveJob::Notificare::Projection.unsubscribe!
   end
 
   test "total sets progress_total on the execution row" do
@@ -35,15 +35,15 @@ class ActiveJob::Progress::ProgressHandleTest < ActiveSupport::TestCase
   end
 
   test "advance! no-ops gracefully before execution row exists" do
-    handle = ActiveJob::Progress::ProgressHandle.new("nonexistent-job-id")
+    handle = ActiveJob::Notificare::ProgressHandle.new("nonexistent-job-id")
     assert_nothing_raised { handle.advance! }
-    assert_equal 0, ActiveJob::Progress::Execution.where(job_id: "nonexistent-job-id").count
+    assert_equal 0, ActiveJob::Notificare::Execution.where(job_id: "nonexistent-job-id").count
   end
 
   test "total no-ops gracefully before execution row exists" do
-    handle = ActiveJob::Progress::ProgressHandle.new("nonexistent-job-id")
+    handle = ActiveJob::Notificare::ProgressHandle.new("nonexistent-job-id")
     assert_nothing_raised { handle.total(50) }
-    assert_equal 0, ActiveJob::Progress::Execution.where(job_id: "nonexistent-job-id").count
+    assert_equal 0, ActiveJob::Notificare::Execution.where(job_id: "nonexistent-job-id").count
   end
 
   test "concurrent advance! calls from 10 threads yield correct final count" do
@@ -55,6 +55,6 @@ class ActiveJob::Progress::ProgressHandleTest < ActiveSupport::TestCase
   private
 
   def execution
-    ActiveJob::Progress::Execution.find_by!(job_id: @job.job_id)
+    ActiveJob::Notificare::Execution.find_by!(job_id: @job.job_id)
   end
 end

@@ -7,7 +7,7 @@ ERD §7: row changes broadcast automatically. No manual `broadcast_*` calls in u
 - `Execution` `broadcasts_refreshes_to` itself (Turbo Streams `morph` strategy where available; fall back to `replace` on older Turbo).
 - `Notification` `broadcasts_refreshes_to` keyed on `[recipient_type, recipient_id]` so a recipient's inbox updates regardless of which job wrote.
 - Stream names documented and stable (part of the public surface, since helpers in ticket 09 subscribe to them):
-  - Execution: `["active_job_progress", execution.job_id]`
+  - Execution: `["active_job_notificare", execution.job_id]`
   - Notifications inbox: `["active_job_notifications", recipient.to_gid_param]`
 - Action Cable / Solid Cable / async adapter all supported (test against Action Cable test adapter).
 

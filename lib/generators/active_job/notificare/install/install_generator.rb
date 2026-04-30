@@ -2,7 +2,7 @@ require "rails/generators"
 require "rails/generators/active_record"
 
 module ActiveJob
-  module Progress
+  module Notificare
     module Generators
       class InstallGenerator < Rails::Generators::Base
         include Rails::Generators::Migration
@@ -15,22 +15,22 @@ module ActiveJob
 
         def create_migration_file
           migration_template(
-            "create_active_job_progress_tables.rb.tt",
-            "db/migrate/create_active_job_progress_tables.rb"
+            "create_active_job_notificare_tables.rb.tt",
+            "db/migrate/create_active_job_notificare_tables.rb"
           )
         end
 
         def create_initializer
-          template "initializer.rb.tt", "config/initializers/active_job_progress.rb"
+          template "initializer.rb.tt", "config/initializers/active_job_notificare.rb"
         end
 
         def append_route_comment
-          route "# mount ActiveJob::Progress::Engine => \"/job_progress\""
+          route "# mount ActiveJob::Notificare::Engine => \"/notificare\""
         end
 
         def create_view_partials
-          create_file "app/views/active_job/progress/_progress.html.erb"
-          create_file "app/views/active_job/progress/_notifications.html.erb"
+          create_file "app/views/active_job/notificare/_progress.html.erb"
+          create_file "app/views/active_job/notificare/_notifications.html.erb"
         end
 
         private
