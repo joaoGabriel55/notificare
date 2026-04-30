@@ -11,8 +11,21 @@ module ActiveJob
     module StepDSL
       extend ActiveSupport::Concern
 
+      included do
+        extend ClassMethods
+      end
+
+      module ClassMethods
+        # True after the first run of any instance that called step(notify:).
+        # Used by Recipient to enforce recipient: presence on subsequent enqueues.
+        def has_step_notifications?
+          @_has_step_notifications == true
+        end
+      end
+
       def step(name, *args, notify: nil, **opts, &block)
         if notify
+          self.class.instance_variable_set(:@_has_step_notifications, true)
           @_notificare_step_notify ||= {}
           @_notificare_step_notify[name.to_sym] = notify
         end
