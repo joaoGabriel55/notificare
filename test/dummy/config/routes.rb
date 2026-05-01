@@ -1,4 +1,5 @@
 Rails.application.routes.draw do
+  # mount ActiveJob::Notificare::Engine => "/notificare"
   mount ActiveJob::Notificare::Engine, at: "/active_job_notificare", as: :notificare
 
   get "/home", to: "home#index", as: :home

@@ -61,7 +61,12 @@ app/
     notification.rb               # ActiveRecord model for active_job_notifications
   views/active_job/notificare/
     _progress.html.erb            # determinate <progress> or indeterminate spinner + turbo_stream_from
-    _notifications.html.erb       # inbox: visible notifications, read/dismiss/clear-all + turbo_stream_from
+    _notifications.html.erb       # inbox wrapper: turbo_stream_from + clear-all + renders _notification per item
+    _notification.html.erb        # single notification card wrapped in turbo_frame_tag dom_id(notification)
+    notifications/
+      read.turbo_stream.erb       # turbo_stream.replace — swaps card with updated state (unread class removed)
+      dismiss.turbo_stream.erb    # turbo_stream.remove — removes the notification's turbo-frame from DOM
+      clear.turbo_stream.erb      # turbo_stream.remove for each notification in @notifications
 config/
   routes.rb                       # PATCH /notifications/:id/read|dismiss, DELETE /notifications
 ```
@@ -129,7 +134,7 @@ The `notify:` stash is read in the `step.active_job` subscriber (ticket 06). Row
 `ActiveJob::Notificare::ViewHelpers` (`app/helpers/active_job/notificare/view_helpers.rb`) is auto-included into `ActionView::Base` via an engine initializer. Two public helpers:
 
 - **`active_job_notificare(execution)`**: renders `_progress.html.erb`. If `execution.progress_total` is set, renders a `<progress class="notificare-progress__bar">` element with `current/total` counts (`.notificare-progress__label`) and a percentage label. Otherwise renders an indeterminate spinner (`.notificare-progress__spinner`). Both modes show `current_step` as `.notificare-progress__step` if present. Root wrapper is `div.notificare-progress`. Subscribes to the execution's ActionCable stream via `turbo_stream_from "active_job_progress", execution.job_id`.
-- **`active_job_notifications(for: recipient)`**: fetches `Notification.where(recipient:).visible` and renders `_notifications.html.erb`. Root wrapper is `div#active_job_notifications.notificare-inbox`. Each notification is `div.notificare-notification` with modifier `notificare-notification--unread` for unread items. Title is `strong.notificare-notification__title`, description is `p.notificare-notification__description`, action buttons/links live in `div.notificare-notification__actions`. Subscribes via `turbo_stream_from "active_job_notifications", recipient.to_gid_param`.
+- **`active_job_notifications(for: recipient)`**: fetches `Notification.where(recipient:).visible` and renders `_notifications.html.erb`. Root wrapper is `div#active_job_notifications.notificare-inbox`. The inbox partial iterates notifications and delegates each card to `render "active_job/notificare/notification", notification: notification` (`_notification.html.erb`). Each card is wrapped in `turbo_frame_tag dom_id(notification)` so controller actions can replace or remove individual cards without a page redirect. Title is `strong.notificare-notification__title`, description is `p.notificare-notification__description`, action buttons/links live in `div.notificare-notification__actions`. Subscribes via `turbo_stream_from "active_job_notifications", recipient.to_gid_param`.
 
 **CSS class reference (`notificare-*` prefix, all stable and intended for host-app overrides)**:
 
@@ -158,9 +163,11 @@ The `notify:` stash is read in the `step.active_job` subscriber (ticket 06). Row
 ### Notifications controller
 
 `ActiveJob::Notificare::NotificationsController` (`app/controllers/active_job/notificare/notifications_controller.rb`) handles three routes:
-- `PATCH /notifications/:id/read` → `#read` — calls `mark_read!` on the notification
-- `PATCH /notifications/:id/dismiss` → `#dismiss` — calls `dismiss!`
-- `DELETE /notifications` → `#clear` — destroys all `visible` notifications for the current recipient
+- `PATCH /notifications/:id/read` → `#read` — calls `mark_read!`, responds with `read.turbo_stream.erb` which replaces the notification's turbo-frame with an updated card (unread modifier removed, "Mark as read" button gone)
+- `PATCH /notifications/:id/dismiss` → `#dismiss` — calls `dismiss!`, responds with `dismiss.turbo_stream.erb` which removes the notification's turbo-frame from the DOM
+- `DELETE /notifications` → `#clear` — collects `@notifications = visible.to_a` before `destroy_all`, responds with `clear.turbo_stream.erb` which emits a `turbo_stream.remove` for each collected frame
+
+All three actions use `respond_to { |f| f.turbo_stream; f.html { head :ok } }`. Turbo automatically sends `Accept: text/vnd.turbo-stream.html` on `button_to` form submissions, so `format.turbo_stream` is selected without any extra attributes on the buttons. The `clear` action collects the relation into an array before `destroy_all` so the IDs are available when the stream view renders.
 
 Authorization: `set_notification` scopes the find to `Notification.where(recipient: @current_recipient)`, returning `404` if the record doesn't belong to the current recipient. `set_current_recipient` returns `401` if the recipient cannot be resolved.
 
@@ -185,6 +192,14 @@ Authorization: `set_notification` scopes the find to `Notification.where(recipie
 - `ManualNotifyTestJob` — uses `notify_on :completed`; calls `notify(title:, description:, metadata:, actions:)` inside `perform` for ticket-07 coverage
 - `UsesNotifyTestJob` — calls `uses_notify!` at class definition; used to verify enqueue-time enforcement before any instance has run
 - `HomeController` (`test/dummy/app/controllers/home_controller.rb`) — renders both view helpers for integration tests; accepts `user_id` and `job_id` params
+
+**Dummy app browser JS setup**: the dummy app generator originally ran with `--skip-javascript`, so it had no `app/javascript/` or `config/importmap.rb`. Turbo wasn't loaded in the browser, which made `button_to` form submissions in the inbox do full-page navigation instead of in-place Turbo Stream swaps. Fixed by wiring up the standard Rails 8 importmap setup:
+- `test/dummy/config/importmap.rb` pins `@hotwired/turbo-rails`, `@hotwired/stimulus`, `@hotwired/stimulus-loading`, plus `pin_all_from "app/javascript/controllers"`
+- `test/dummy/app/javascript/application.js` imports `@hotwired/turbo-rails` and `controllers`
+- `test/dummy/app/javascript/controllers/application.js` and `controllers/index.js` are the standard Stimulus boot files
+- `test/dummy/app/views/layouts/application.html.erb` calls `<%= javascript_importmap_tags %>`
+
+Without these, manual browser testing of the inbox actions appears broken even though the controller is doing the right thing — keep them in place when regenerating dummy app pieces.
 
 `ProjectionTest` uses `include ActiveJob::TestHelper` and `perform_enqueued_jobs` (not `with_queue_adapter`, which doesn't exist in this Rails version) to drive integration paths.
 
