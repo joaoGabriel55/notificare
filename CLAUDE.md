@@ -109,6 +109,17 @@ The `notify:` stash is read in the `step.active_job` subscriber (ticket 06). Row
 - `status` enum maps strings to strings: `{ enqueued: "enqueued", running: "running", completed: "completed", failed: "failed" }`
 - `enum` macro generates `.running` and `.failed` scopes; `.recent` is defined explicitly
 - `Notificare::Execution` is an alias, set via `config.to_prepare` in the engine
+- When `turbo-rails` is available (`defined?(Turbo::Broadcastable)`), includes `Turbo::Broadcastable` and calls `broadcasts_refreshes_to ->(execution) { [ "active_job_progress", execution.job_id ] }`. This fires an `after_commit` that enqueues `Turbo::Streams::BroadcastStreamJob` on every create/update. The stable stream name is `"active_job_progress:{job_id}"` (unsigned, as passed to `ActionCable.server.broadcast`).
+
+### Notification model (broadcast addition)
+
+`ActiveJob::Notificare::Notification` (`app/models/active_job/notificare/notification.rb`) also includes `Turbo::Broadcastable` (when available) and registers an `after_commit :broadcast_notification_refresh` callback. That private method guards on `recipient` presence and calls `broadcast_refresh_later_to "active_job_notifications", recipient.to_gid_param`. The stable stream name is `"active_job_notifications:{recipient.to_gid_param}"`.
+
+### Hotwire broadcast internals
+
+- Both models use `broadcast_refresh_later_to` (async, via `Turbo::Streams::BroadcastStreamJob`). The `Turbo::ImmediateDebouncer` is active in test mode (set by the turbo-rails engine initializer), so the job is enqueued synchronously.
+- **Event ordering gotcha**: in inline mode (`perform_enqueued_jobs { block }`), `enqueue.active_job` fires *after* `perform.active_job` (because `instrument` notifies subscribers after the block completes). This means the Projection's Execution row doesn't exist when `perform.active_job` fires for the same request. Always use `perform_enqueued_jobs` *without* a block in broadcast integration tests so the enqueue event fires first and the Execution/Notification rows exist when the job runs. Use two consecutive `perform_enqueued_jobs` calls when testing notification broadcasts: first to run the job (which queues `BroadcastStreamJob`), second to run the broadcast job.
+- `assert_broadcasts(stream, count) { block }` from `ActionCable::TestHelper` takes the **unsigned** stream name (e.g., `"active_job_progress:#{job_id}"`), not the signed token from `Turbo::StreamsChannel.signed_stream_name`.
 
 ### Test dummy app
 
@@ -137,3 +148,4 @@ Continuation step events are simulated in unit tests using `fake_step(name)` (a 
 - **`include ActiveJob::Notificare` is the opt-in.** It auto-includes `ActiveJob::Continuable`. `tracks_progress?` defaults to true after the include; `tracks_progress false` opts out without removing the include.
 - **Rubocop uses `rubocop-rails-omakase`**, configured in `.rubocop.yml`. `test/dummy/` is excluded from linting.
 - The `test/dummy/` Gemfile is separate from the gem's Gemfile; do not add test dependencies there.
+- **`turbo-rails` in the root Gemfile** (added for ticket 08). The gemspec does not declare it as a hard dependency; the models guard broadcast setup with `if defined?(Turbo::Broadcastable)` so the gem loads cleanly without turbo-rails.

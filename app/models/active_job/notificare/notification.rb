@@ -3,6 +3,11 @@ module ActiveJob
     class Notification < ApplicationRecord
       self.table_name = "active_job_notifications"
 
+      if defined?(Turbo::Broadcastable)
+        include Turbo::Broadcastable
+        after_commit :broadcast_notification_refresh
+      end
+
       belongs_to :recipient, polymorphic: true
 
       enum :event_type, { completed: "completed", failed: "failed", custom: "custom" }
@@ -32,6 +37,13 @@ module ActiveJob
 
       def dismiss!
         update!(dismissed_at: Time.current) unless dismissed?
+      end
+
+      private
+
+      def broadcast_notification_refresh
+        return unless recipient
+        broadcast_refresh_later_to "active_job_notifications", recipient.to_gid_param
       end
     end
   end
