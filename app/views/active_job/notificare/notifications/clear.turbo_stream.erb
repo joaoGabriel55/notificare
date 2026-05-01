@@ -1,0 +1,3 @@
+<% @notifications.each do |notification| %>
+  <%= turbo_stream.remove dom_id(notification) %>
+<% end %>

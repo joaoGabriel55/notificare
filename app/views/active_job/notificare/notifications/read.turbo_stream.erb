@@ -1,0 +1,3 @@
+<%= turbo_stream.replace dom_id(@notification) do %>
+  <%= render "active_job/notificare/notification", notification: @notification %>
+<% end %>
