@@ -1,0 +1,7 @@
+en:
+  active_job:
+    notificare:
+      notifications:
+        clear_all: "Clear all"
+        mark_as_read: "Mark as read"
+        dismiss: "Dismiss"

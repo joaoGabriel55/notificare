@@ -1,0 +1,15 @@
+<%= turbo_stream_from "active_job_progress", execution.job_id %>
+<div id="<%= dom_id(execution) %>" class="notificare-progress">
+  <% if execution.progress_total.present? %>
+    <progress class="notificare-progress__bar" value="<%= execution.progress_current %>" max="<%= execution.progress_total %>"></progress>
+    <span class="notificare-progress__label"><%= execution.progress_current %>/<%= execution.progress_total %> (<%= (execution.progress_current.to_f / execution.progress_total * 100).round %>%)</span>
+    <% if execution.current_step.present? %>
+      <span class="notificare-progress__step"><%= execution.current_step %></span>
+    <% end %>
+  <% else %>
+    <span class="notificare-progress__spinner" role="status" aria-label="Loading..."></span>
+    <% if execution.current_step.present? %>
+      <span class="notificare-progress__step"><%= execution.current_step %></span>
+    <% end %>
+  <% end %>
+</div>

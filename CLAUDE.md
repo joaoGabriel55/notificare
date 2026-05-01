@@ -50,11 +50,20 @@ lib/
   active_job/notificare/version.rb
   generators/…                           # install generator (active_job:notificare:install)
 app/
+  controllers/active_job/notificare/
+    application_controller.rb     # engine's base controller (ActionController::Base)
+    notifications_controller.rb   # PATCH :read, PATCH :dismiss, DELETE :clear (collection)
+  helpers/active_job/notificare/
+    view_helpers.rb               # active_job_notificare(execution), active_job_notifications(for:)
   models/active_job/notificare/
     application_record.rb         # engine's abstract base record
     execution.rb                  # ActiveRecord model for active_job_executions
     notification.rb               # ActiveRecord model for active_job_notifications
-  views/active_job/notificare/    # shared view partials (stub; populated by install generator)
+  views/active_job/notificare/
+    _progress.html.erb            # determinate <progress> or indeterminate spinner + turbo_stream_from
+    _notifications.html.erb       # inbox: visible notifications, read/dismiss/clear-all + turbo_stream_from
+config/
+  routes.rb                       # PATCH /notifications/:id/read|dismiss, DELETE /notifications
 ```
 
 ### How the projection works
@@ -115,6 +124,46 @@ The `notify:` stash is read in the `step.active_job` subscriber (ticket 06). Row
 
 `ActiveJob::Notificare::Notification` (`app/models/active_job/notificare/notification.rb`) also includes `Turbo::Broadcastable` (when available) and registers an `after_commit :broadcast_notification_refresh` callback. That private method guards on `recipient` presence and calls `broadcast_refresh_later_to "active_job_notifications", recipient.to_gid_param`. The stable stream name is `"active_job_notifications:{recipient.to_gid_param}"`.
 
+### View helpers
+
+`ActiveJob::Notificare::ViewHelpers` (`app/helpers/active_job/notificare/view_helpers.rb`) is auto-included into `ActionView::Base` via an engine initializer. Two public helpers:
+
+- **`active_job_notificare(execution)`**: renders `_progress.html.erb`. If `execution.progress_total` is set, renders a `<progress class="notificare-progress__bar">` element with `current/total` counts (`.notificare-progress__label`) and a percentage label. Otherwise renders an indeterminate spinner (`.notificare-progress__spinner`). Both modes show `current_step` as `.notificare-progress__step` if present. Root wrapper is `div.notificare-progress`. Subscribes to the execution's ActionCable stream via `turbo_stream_from "active_job_progress", execution.job_id`.
+- **`active_job_notifications(for: recipient)`**: fetches `Notification.where(recipient:).visible` and renders `_notifications.html.erb`. Root wrapper is `div#active_job_notifications.notificare-inbox`. Each notification is `div.notificare-notification` with modifier `notificare-notification--unread` for unread items. Title is `strong.notificare-notification__title`, description is `p.notificare-notification__description`, action buttons/links live in `div.notificare-notification__actions`. Subscribes via `turbo_stream_from "active_job_notifications", recipient.to_gid_param`.
+
+**CSS class reference (`notificare-*` prefix, all stable and intended for host-app overrides)**:
+
+| Element | Class |
+|---|---|
+| Progress wrapper | `notificare-progress` |
+| Determinate bar | `notificare-progress__bar` |
+| Fraction/percentage label | `notificare-progress__label` |
+| Current step name | `notificare-progress__step` |
+| Indeterminate spinner | `notificare-progress__spinner` |
+| Notifications inbox wrapper | `notificare-inbox` |
+| Notification item | `notificare-notification` |
+| Unread modifier | `notificare-notification--unread` |
+| Notification title | `notificare-notification__title` |
+| Notification description | `notificare-notification__description` |
+| Notification actions container | `notificare-notification__actions` |
+
+**I18n keys** — all button/link labels in `_notifications.html.erb` use dot-shorthand `t()` calls resolved from `config/locales/en.yml`. Host apps override any key in their own locale files:
+
+| Key | Default (en) |
+|---|---|
+| `active_job.notificare.notifications.clear_all` | `"Clear all"` |
+| `active_job.notificare.notifications.mark_as_read` | `"Mark as read"` |
+| `active_job.notificare.notifications.dismiss` | `"Dismiss"` |
+
+### Notifications controller
+
+`ActiveJob::Notificare::NotificationsController` (`app/controllers/active_job/notificare/notifications_controller.rb`) handles three routes:
+- `PATCH /notifications/:id/read` → `#read` — calls `mark_read!` on the notification
+- `PATCH /notifications/:id/dismiss` → `#dismiss` — calls `dismiss!`
+- `DELETE /notifications` → `#clear` — destroys all `visible` notifications for the current recipient
+
+Authorization: `set_notification` scopes the find to `Notification.where(recipient: @current_recipient)`, returning `404` if the record doesn't belong to the current recipient. `set_current_recipient` returns `401` if the recipient cannot be resolved.
+
 ### Hotwire broadcast internals
 
 - Both models use `broadcast_refresh_later_to` (async, via `Turbo::Streams::BroadcastStreamJob`). The `Turbo::ImmediateDebouncer` is active in test mode (set by the turbo-rails engine initializer), so the job is enqueued synchronously.
@@ -135,6 +184,7 @@ The `notify:` stash is read in the `step.active_job` subscriber (ticket 06). Row
 - `FailingStepNotifyTestJob` — `:ok_step` (notify: :ok_done) succeeds; `:boom_step` raises
 - `ManualNotifyTestJob` — uses `notify_on :completed`; calls `notify(title:, description:, metadata:, actions:)` inside `perform` for ticket-07 coverage
 - `UsesNotifyTestJob` — calls `uses_notify!` at class definition; used to verify enqueue-time enforcement before any instance has run
+- `HomeController` (`test/dummy/app/controllers/home_controller.rb`) — renders both view helpers for integration tests; accepts `user_id` and `job_id` params
 
 `ProjectionTest` uses `include ActiveJob::TestHelper` and `perform_enqueued_jobs` (not `with_queue_adapter`, which doesn't exist in this Rails version) to drive integration paths.
 
@@ -149,3 +199,5 @@ Continuation step events are simulated in unit tests using `fake_step(name)` (a 
 - **Rubocop uses `rubocop-rails-omakase`**, configured in `.rubocop.yml`. `test/dummy/` is excluded from linting.
 - The `test/dummy/` Gemfile is separate from the gem's Gemfile; do not add test dependencies there.
 - **`turbo-rails` in the root Gemfile** (added for ticket 08). The gemspec does not declare it as a hard dependency; the models guard broadcast setup with `if defined?(Turbo::Broadcastable)` so the gem loads cleanly without turbo-rails.
+- **Mount alias must be `notificare`**: host apps must mount the engine with `as: :notificare` to avoid a naming collision between the `active_job_notificare(execution)` view helper and the default route proxy name. The partials use `notificare.read_notification_path(...)` etc. Example: `mount ActiveJob::Notificare::Engine, at: "/active_job_notificare", as: :notificare`.
+- **`ActiveJob::Notificare.current_recipient_proc`**: mattr on the module. Set in host app initializers to a lambda called via `instance_exec` in the engine's `NotificationsController` to resolve the current recipient. Defaults to `current_user` if the host app controller responds to it. Example: `ActiveJob::Notificare.current_recipient_proc = -> { current_user }`.

@@ -9,6 +9,12 @@ module ActiveJob
         ActiveJob::Notificare::Projection.subscribe!
       end
 
+      initializer "active_job.notificare.helpers" do
+        ActiveSupport.on_load(:action_view) do
+          include ActiveJob::Notificare::ViewHelpers
+        end
+      end
+
       config.to_prepare do
         unless ::Notificare.const_defined?(:Execution, false)
           ::Notificare.const_set(:Execution, ActiveJob::Notificare::Execution)

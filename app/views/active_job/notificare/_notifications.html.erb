@@ -1,0 +1,23 @@
+<%= turbo_stream_from "active_job_notifications", recipient.to_gid_param %>
+<div id="active_job_notifications" class="notificare-inbox">
+  <%= button_to t(".clear_all"), notificare.clear_notifications_path, method: :delete %>
+  <% notifications.each do |notification| %>
+    <div id="<%= dom_id(notification) %>" class="notificare-notification<%= notification.read? ? "" : " notificare-notification--unread" %>">
+      <strong class="notificare-notification__title"><%= notification.title %></strong>
+      <% if notification.description.present? %>
+        <p class="notificare-notification__description"><%= notification.description %></p>
+      <% end %>
+      <div class="notificare-notification__actions">
+        <% unless notification.read? %>
+          <%= button_to t(".mark_as_read"), notificare.read_notification_path(notification), method: :patch %>
+        <% end %>
+        <%= button_to t(".dismiss"), notificare.dismiss_notification_path(notification), method: :patch %>
+        <% if notification.actions.present? %>
+          <% notification.actions.each do |action| %>
+            <%= link_to action["label"], action["url"] %>
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+</div>
