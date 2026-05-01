@@ -1,4 +1,4 @@
-class CreateActiveJobProgressTables < ActiveRecord::Migration[8.0]
+class CreateActiveJobNotificareTables < ActiveRecord::Migration[8.1]
   def change
     create_table :active_job_executions do |t|
       t.string :job_id, null: false

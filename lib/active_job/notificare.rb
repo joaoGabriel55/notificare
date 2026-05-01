@@ -7,5 +7,7 @@ require "active_job/notificare/concern"
 
 module ActiveJob
   module Notificare
+    mattr_accessor :current_recipient_proc
+    mattr_accessor :parent_controller, default: "ApplicationController"
   end
 end

@@ -29,8 +29,9 @@ module ActiveJob
         end
 
         def create_view_partials
-          create_file "app/views/active_job/notificare/_progress.html.erb"
-          create_file "app/views/active_job/notificare/_notifications.html.erb"
+          template "_progress.html.erb.tt", "app/views/active_job/notificare/_progress.html.erb"
+          template "_notifications.html.erb.tt", "app/views/active_job/notificare/_notifications.html.erb"
+          template "_notification.html.erb.tt", "app/views/active_job/notificare/_notification.html.erb"
         end
 
         private

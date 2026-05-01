@@ -1,5 +1,8 @@
 Rails.application.routes.draw do
-  mount ActiveJob::Notificare::Engine, at: "/active_job_notificare"
+  # mount ActiveJob::Notificare::Engine => "/notificare"
+  mount ActiveJob::Notificare::Engine, at: "/active_job_notificare", as: :notificare
+
+  get "/home", to: "home#index", as: :home
 
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

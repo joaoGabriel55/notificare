@@ -125,6 +125,14 @@ class ActiveJob::Notificare::Generators::InstallGeneratorTest < Rails::Generator
     assert_file "app/views/active_job/notificare/_notifications.html.erb"
   end
 
+  test "creates notification card partial stub" do
+    run_generator
+    assert_file "app/views/active_job/notificare/_notification.html.erb" do |content|
+      assert_match(/turbo_frame_tag/, content)
+      assert_match(/notificare-notification/, content)
+    end
+  end
+
   test "running generator twice does not duplicate migration" do
     run_generator
     @generator = nil  # force a fresh generator instance for second invocation
