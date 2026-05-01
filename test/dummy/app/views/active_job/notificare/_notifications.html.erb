@@ -1,0 +1,7 @@
+<%= turbo_stream_from "active_job_notifications", recipient.to_gid_param %>
+<div id="active_job_notifications" class="notificare-inbox">
+  <%= button_to t(".clear_all"), notificare.clear_notifications_path, method: :delete %>
+  <% notifications.each do |notification| %>
+    <%= render "active_job/notificare/notification", notification: notification %>
+  <% end %>
+</div>

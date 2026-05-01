@@ -1,0 +1,36 @@
+class CreateActiveJobNotificareTables < ActiveRecord::Migration[8.1]
+  def change
+    create_table :active_job_executions do |t|
+      t.string :job_id, null: false
+      t.string :job_class, null: false
+      t.string :status, null: false, default: "enqueued"
+      t.string :current_step
+      t.integer :progress_current, null: false, default: 0
+      t.integer :progress_total
+      t.datetime :started_at
+      t.datetime :completed_at
+      t.text :error
+      t.timestamps
+    end
+
+    add_index :active_job_executions, :job_id, unique: true
+    add_index :active_job_executions, :job_class
+
+    create_table :active_job_notifications do |t|
+      t.string :recipient_type, null: false
+      t.string :recipient_id, null: false
+      t.string :job_id
+      t.string :event_type, null: false
+      t.string :title, null: false
+      t.text :description
+      t.text :metadata
+      t.text :actions
+      t.datetime :read_at
+      t.datetime :dismissed_at
+      t.timestamps
+    end
+
+    add_index :active_job_notifications, :recipient_id
+    add_index :active_job_notifications, :job_id
+  end
+end
