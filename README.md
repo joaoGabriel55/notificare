@@ -33,6 +33,7 @@ Mental model: *Active Storage, but for job progress — plus a small inbox for w
 - [View Helpers](#view-helpers)
 - [Hotwire / Turbo Streams](#hotwire--turbo-streams)
 - [Notification Actions (Inbox)](#notification-actions-inbox)
+- [Admin UI (Mounted Engine)](#admin-ui-mounted-engine)
 - [Configuration](#configuration)
 - [Internationalization (I18n)](#internationalization-i18n)
 - [Customizing the markup](#customizing-the-markup)
@@ -110,12 +111,12 @@ The generator copies the partials into your app so the gem never ships markup th
 In `config/routes.rb`:
 
 ```ruby
-mount ActiveJob::Notificare::Engine, at: "/active_job_notificare", as: :notificare
+mount ActiveJob::Notificare::Engine, at: "/notificare", as: :notificare
 ```
 
 The `as: :notificare` alias is **required** — it avoids a naming collision between the `active_job_notificare(execution)` view helper and the default route proxy. Internal partials reference `notificare.read_notification_path(...)`, `notificare.dismiss_notification_path(...)`, and `notificare.clear_notifications_path`, so the alias is part of the public contract.
 
-The mount point itself (`/active_job_notificare`) is arbitrary — pick anything you like.
+The mount point itself (`/notificare`) is arbitrary — pick anything you like.
 
 ### 4. Make sure Turbo is loaded in the browser
 
@@ -435,7 +436,7 @@ If you want the stream subscription without the gem's default markup (e.g. to re
 
 ## Notification Actions (Inbox)
 
-The engine exposes three routes for inbox interactions, all scoped to the current recipient. Paths below are **relative to the engine mount point** (e.g. with `mount … at: "/active_job_notificare"`, the read path is `/active_job_notificare/notifications/:id/read`).
+The engine exposes three routes for inbox interactions, all scoped to the current recipient. Paths below are **relative to the engine mount point** (e.g. with `mount … at: "/notificare"`, the read path is `/notificare/notifications/:id/read`).
 
 | Verb | Path | Helper | Action | Description |
 |---|---|---|---|---|
@@ -459,12 +460,63 @@ All three actions respond with Turbo Stream content — no redirect, no full-pag
 
 ---
 
+## Admin UI (Mounted Engine)
+
+The engine ships a minimal admin status page accessible at the engine's mount point (e.g. `/notificare`).
+
+### Executions index
+
+`GET /` (root) and `GET /executions` — paginated list of all executions. Filter by status or job class via query params:
+
+```
+/active_job_notificare/executions?status=failed
+/active_job_notificare/executions?job_class=ImportJob
+/active_job_notificare/executions?status=running&job_class=ExportJob
+```
+
+Displays status badge, job class, job ID, current step, progress fraction, start/finish timestamps. Paginates at 25 rows per page.
+
+### Execution show
+
+`GET /executions/:id` — single execution detail with:
+
+- Status, job ID, current step, started/completed timestamps, error message.
+- **Live progress widget** — the same `active_job_notificare(execution)` helper used in your own views, subscribing to the Turbo Stream channel. Updates automatically without a page refresh while the job is running.
+- **Tied notifications** — all `Notification` rows written for the same `job_id`, newest-first.
+
+### Authentication
+
+The admin UI is protected by `ActiveJob::Notificare.authenticate_with`. Configure it in an initializer:
+
+```ruby
+# config/initializers/active_job_notificare.rb
+ActiveJob::Notificare.authenticate_with = -> { current_user&.admin? }
+```
+
+The lambda is evaluated via `instance_exec` inside the `ExecutionsController`, so it has full access to session state (params, cookies, `current_user`, etc.).
+
+**Fail-safe default:** if `authenticate_with` is not configured and the environment is `production`, every request returns `403 Forbidden`. In development/test, unauthenticated access is allowed for convenience.
+
+| Scenario | Result |
+|---|---|
+| `authenticate_with` not set + production | `403 Forbidden` |
+| `authenticate_with` not set + non-production | allowed |
+| `authenticate_with = -> { false }` | `403 Forbidden` |
+| `authenticate_with = -> { true }` | allowed |
+
+### Styling
+
+The engine ships a small stylesheet (`active_job/notificare/engine.css`) included via the engine's own layout. The layout also loads `javascript_importmap_tags` if `importmap-rails` is present, enabling Turbo live updates on the show page. Host apps that use a different JS bundler should ensure Turbo is loaded on the page before visiting the admin UI.
+
+---
+
 ## Configuration
 
-The gem exposes two module-level knobs, both `mattr_accessor` on `ActiveJob::Notificare`:
+The gem exposes three module-level knobs, all `mattr_accessor` on `ActiveJob::Notificare`:
 
 | Knob | Default | Purpose |
 |---|---|---|
+| `ActiveJob::Notificare.authenticate_with` | `nil` | Lambda evaluated via `instance_exec` in `ExecutionsController` to guard the admin UI. Nil in production denies access. |
 | `ActiveJob::Notificare.current_recipient_proc` | `nil` | Lambda evaluated via `instance_exec` inside the engine's controllers to resolve the current recipient. Falls back to `current_notificare_recipient`, then `current_user`. |
 | `ActiveJob::Notificare.parent_controller` | `"ApplicationController"` | The constant name (string) the engine's `ApplicationController` inherits from. Set this if your app routes everything through a custom base controller (e.g. `Api::BaseController`). |
 
@@ -649,10 +701,11 @@ bin/rails server
 
 Then open:
 
+- **Admin UI** — <http://localhost:3000/notificare> — paginated executions list and per-execution detail with live progress.
 - **Alice's inbox** — <http://localhost:3000/home?user_id=1>
 - **Bob's inbox** — <http://localhost:3000/home?user_id=2>
 
-The page renders `active_job_notificare` (progress widget) and `active_job_notifications` (inbox) for the given user.
+The home page renders `active_job_notificare` (progress widget) and `active_job_notifications` (inbox) for the given user.
 
 ### Enqueue a job from the console
 

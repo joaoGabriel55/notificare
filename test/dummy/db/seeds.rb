@@ -108,5 +108,10 @@ ActiveJob::Notificare::Notification.find_or_create_by!(
 )
 
 puts "Seeded users: alice (id=#{alice.id}), bob (id=#{bob.id})"
-puts "Visit: http://localhost:3000/home?user_id=#{alice.id}"
-puts "       http://localhost:3000/home?user_id=#{bob.id}"
+puts ""
+puts "Inbox (per-user notifications):"
+puts "  http://localhost:3000/home?user_id=#{alice.id}  (Alice)"
+puts "  http://localhost:3000/home?user_id=#{bob.id}  (Bob)"
+puts ""
+puts "Admin UI (all executions):"
+puts "  http://localhost:3000/notificare"

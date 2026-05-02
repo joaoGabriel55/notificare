@@ -1,2 +1,11 @@
+<p>
+  <strong>Admin UI:</strong>
+  <%= link_to "Job Executions", notificare.executions_path %>
+  &nbsp;|&nbsp;
+  <strong>Current user:</strong> <%= @user.name %>
+</p>
+
+<hr>
+
 <%= active_job_notificare(@execution) if @execution %>
 <%= active_job_notifications(for: @user) %>
