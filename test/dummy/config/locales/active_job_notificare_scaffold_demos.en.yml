@@ -1,0 +1,18 @@
+en:
+  scaffold_demos:
+    index:
+      title: "Scaffold Demos"
+      empty: "No scaffold demos found."
+      status_label: "Status"
+      started_label: "Started"
+      details: "Details"
+    show:
+      back: "← Scaffold Demos"
+      title: "Scaffold demo details"
+      status_label: "Status"
+      started_label: "Started"
+      completed_label: "Completed"
+      error_label: "Error"
+      progress_heading: "Progress"
+      notifications_heading: "Notifications"
+      no_notifications: "No notifications for this run yet."
