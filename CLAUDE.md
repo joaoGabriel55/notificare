@@ -48,7 +48,9 @@ lib/
   active_job/notificare/progress_handle.rb  # ProgressHandle — total(n) / advance!(by=1)
   active_job/notificare/recipient.rb        # Recipient — around_enqueue enforcement of recipient: kwarg
   active_job/notificare/version.rb
-  generators/…                           # install generator (active_job:notificare:install)
+  generators/active_job/notificare/
+    install/                             # active_job:notificare:install — migration, initializer, view partials
+    scaffold/                            # active_job:notificare:scaffold <JobClass> — controller + views for embedded product pages
 app/
   assets/stylesheets/active_job/notificare/
     engine.css                    # minimal BEM stylesheet for the admin UI (nf-* class prefix)
@@ -209,6 +211,27 @@ Authorization: `set_notification` scopes the find to `Notification.where(recipie
 - **Event ordering gotcha**: in inline mode (`perform_enqueued_jobs { block }`), `enqueue.active_job` fires *after* `perform.active_job` (because `instrument` notifies subscribers after the block completes). This means the Projection's Execution row doesn't exist when `perform.active_job` fires for the same request. Always use `perform_enqueued_jobs` *without* a block in broadcast integration tests so the enqueue event fires first and the Execution/Notification rows exist when the job runs. Use two consecutive `perform_enqueued_jobs` calls when testing notification broadcasts: first to run the job (which queues `BroadcastStreamJob`), second to run the broadcast job.
 - `assert_broadcasts(stream, count) { block }` from `ActionCable::TestHelper` takes the **unsigned** stream name (e.g., `"active_job_progress:#{job_id}"`), not the signed token from `Turbo::StreamsChannel.signed_stream_name`.
 
+### Scaffold generator
+
+`lib/generators/active_job/notificare/scaffold/scaffold_generator.rb` — `Rails::Generators::NamedBase` subclass invoked as:
+
+```bash
+rails generate active_job:notificare:scaffold ImportJob
+# options:
+#   --controller=MyImportsController  override the generated controller class name
+#   --prefix=my_imports               override the route/view directory prefix
+```
+
+**What it does:**
+1. Validates that the named class is loadable and includes `ActiveJob::Notificare`; prints an error and skips generation if not.
+2. Generates `app/controllers/{prefix}_controller.rb` with `#index` (executions for this job class scoped to the recipient's notification history) and `#show` (single execution + per-run notifications).
+3. Generates `app/views/{prefix}/index.html.erb` and `show.html.erb` using `active_job_notificare` / `active_job_notifications` helpers and `turbo_stream_from` subscriptions.
+4. Prints a `resources :prefix, only: [:index, :show]` snippet to stdout — **never** mutates `config/routes.rb`.
+
+**Naming convention:** `ImportJob` → `ImportsController`, `imports/` views, `imports_path`. The `--controller` flag overrides only the class name; the `--prefix` flag overrides the file path and route snippet; both flags are independent.
+
+**`current_recipient`:** the generated controller defines a private `current_recipient` helper (exposed via `helper_method`) that defaults to `current_notificare_recipient || current_user`. Developers replace this with their own auth method.
+
 ### Test dummy app
 
 `test/dummy/` is a full Rails app used only for tests. Its migration (`test/dummy/db/migrate/`) defines both tables. Test jobs live in `test/dummy/app/jobs/`:
@@ -223,7 +246,9 @@ Authorization: `set_notification` scopes the find to `Notification.where(recipie
 - `FailingStepNotifyTestJob` — `:ok_step` (notify: :ok_done) succeeds; `:boom_step` raises
 - `ManualNotifyTestJob` — uses `notify_on :completed`; calls `notify(title:, description:, metadata:, actions:)` inside `perform` for ticket-07 coverage
 - `UsesNotifyTestJob` — calls `uses_notify!` at class definition; used to verify enqueue-time enforcement before any instance has run
+- `ScaffoldDemoJob` — minimal job used for scaffold generator tests; includes `ActiveJob::Notificare`, `notify_on :completed, :failed`, one `step(:process, notify: :processed)`
 - `HomeController` (`test/dummy/app/controllers/home_controller.rb`) — renders both view helpers for integration tests; accepts `user_id` and `job_id` params
+- `ScaffoldDemosController` / `app/views/scaffold_demos/` — pre-generated scaffold (output of `rails generate active_job:notificare:scaffold ScaffoldDemoJob`) committed as the smoke test fixture; covered by `scaffold_smoke_test.rb`
 
 **Dummy app browser JS setup**: the dummy app generator originally ran with `--skip-javascript`, so it had no `app/javascript/` or `config/importmap.rb`. Turbo wasn't loaded in the browser, which made `button_to` form submissions in the inbox do full-page navigation instead of in-place Turbo Stream swaps. Fixed by wiring up the standard Rails 8 importmap setup:
 - `test/dummy/config/importmap.rb` pins `@hotwired/turbo-rails`, `@hotwired/stimulus`, `@hotwired/stimulus-loading`, plus `pin_all_from "app/javascript/controllers"`

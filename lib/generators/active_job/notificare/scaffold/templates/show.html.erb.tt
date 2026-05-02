@@ -1,0 +1,39 @@
+<%%= link_to t(".back"), <%= prefix %>_path %>
+
+<h1><%%= t(".title") %></h1>
+<p class="job-id"><%%= @execution.job_id %></p>
+
+<dl>
+  <dt><%%= t(".status_label") %></dt>
+  <dd><%%= @execution.status %></dd>
+
+  <dt><%%= t(".started_label") %></dt>
+  <dd><%%= @execution.started_at&.strftime("%Y-%m-%d %H:%M:%S") || "—" %></dd>
+
+  <dt><%%= t(".completed_label") %></dt>
+  <dd><%%= @execution.completed_at&.strftime("%Y-%m-%d %H:%M:%S") || "—" %></dd>
+
+  <%% if @execution.error.present? %>
+    <dt><%%= t(".error_label") %></dt>
+    <dd><%%= @execution.error %></dd>
+  <%% end %>
+</dl>
+
+<%# Live progress widget. Subscribes to turbo_stream "active_job_progress", job_id — the
+    progress bar / spinner updates automatically while the job is running. %>
+<h2><%%= t(".progress_heading") %></h2>
+<%%= active_job_notificare(@execution) %>
+
+<%# Per-run notification list. Subscribes to the recipient's notification stream so new
+    notifications for this job run appear without a page reload. %>
+<h2><%%= t(".notifications_heading") %></h2>
+<%%= turbo_stream_from "active_job_notifications", current_recipient.to_gid_param %>
+<div id="<%%= dom_id(@execution, :notifications) %>">
+  <%% if @notifications.any? %>
+    <%% @notifications.each do |notification| %>
+      <%%= render "active_job/notificare/notification", notification: notification %>
+    <%% end %>
+  <%% else %>
+    <p><%%= t(".no_notifications") %></p>
+  <%% end %>
+</div>

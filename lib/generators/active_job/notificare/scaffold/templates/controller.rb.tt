@@ -1,0 +1,31 @@
+class <%= scaffold_controller_class_name %> < ApplicationController
+  def index
+    # Scope executions to job runs that produced at least one notification for this recipient.
+    job_ids = ActiveJob::Notificare::Notification
+      .where(recipient: current_recipient)
+      .select(:job_id)
+      .distinct
+    @executions = ActiveJob::Notificare::Execution
+      .where(job_class: "<%= class_name %>", job_id: job_ids)
+      .recent
+  end
+
+  def show
+    @execution = ActiveJob::Notificare::Execution
+      .where(job_class: "<%= class_name %>")
+      .find(params[:id])
+    @notifications = ActiveJob::Notificare::Notification
+      .where(recipient: current_recipient, job_id: @execution.job_id)
+      .visible
+  rescue ActiveRecord::RecordNotFound
+    head :not_found
+  end
+
+  private
+
+  # TODO: replace with however your app exposes the signed-in user/account.
+  def current_recipient
+    current_notificare_recipient || current_user
+  end
+  helper_method :current_recipient
+end

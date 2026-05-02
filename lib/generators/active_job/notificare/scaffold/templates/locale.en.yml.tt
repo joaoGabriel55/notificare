@@ -1,0 +1,18 @@
+en:
+  <%= prefix %>:
+    index:
+      title: "<%= plural_resource_name.titleize %>"
+      empty: "No <%= plural_resource_name.humanize.downcase %> found."
+      status_label: "Status"
+      started_label: "Started"
+      details: "Details"
+    show:
+      back: "← <%= plural_resource_name.titleize %>"
+      title: "<%= resource_name.humanize %> details"
+      status_label: "Status"
+      started_label: "Started"
+      completed_label: "Completed"
+      error_label: "Error"
+      progress_heading: "Progress"
+      notifications_heading: "Notifications"
+      no_notifications: "No notifications for this run yet."
