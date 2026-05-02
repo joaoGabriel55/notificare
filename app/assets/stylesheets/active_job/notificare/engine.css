@@ -1,0 +1,425 @@
+/* ActiveJob::Notificare · engine.css
+   Design: "Doina" — Romanian folk-art palette
+   Dacian sun-wheels · Byzantine gold · madder-dyed wool · Carpathian night */
+
+/* ══ Tokens — light theme (warm parchment & crimson) ════════════════════════ */
+:root {
+  --nf-bg:        #F2EACC;   /* linen/bumbac */
+  --nf-surface:   #FEFBEE;   /* ivory */
+  --nf-border:    #D4BF8A;   /* flax */
+  --nf-text:      #291407;   /* walnut */
+  --nf-muted:     #7D5530;   /* earth */
+  --nf-accent:    #7C1416;   /* madder crimson */
+  --nf-gold:      #AA7A10;   /* Byzantine gold */
+  --nf-accent-fg: #FEFBEE;
+  --nf-radius:    2px;
+  --nf-shadow:    0 1px 6px rgba(41, 20, 7, 0.10);
+
+  /* status — folk-textile hues */
+  --nf-enqueued-bg: #E8DFCC; --nf-enqueued-fg: #4E3518;
+  --nf-running-bg:  #C4D8EE; --nf-running-fg:  #0A2840;
+  --nf-done-bg:     #BAD8C4; --nf-done-fg:     #0C3018;
+  --nf-fail-bg:     #ECC4C0; --nf-fail-fg:     #480A0A;
+  --nf-custom-bg:   #ECD8A4; --nf-custom-fg:   #483800;
+
+  color-scheme: light;
+}
+
+/* ══ Tokens — dark theme (Carpathian night & embers) ════════════════════════ */
+[data-theme="dark"] {
+  --nf-bg:        #150A02;   /* night */
+  --nf-surface:   #221208;   /* dark wood */
+  --nf-border:    #4A2E12;   /* wood grain */
+  --nf-text:      #EEDDBB;   /* candlelight */
+  --nf-muted:     #B88A50;   /* amber */
+  --nf-accent:    #C83C3E;   /* ember crimson */
+  --nf-gold:      #D09E18;   /* golden icon */
+  --nf-accent-fg: #150A02;
+  --nf-shadow:    0 1px 8px rgba(0, 0, 0, 0.55);
+
+  --nf-enqueued-bg: #382810; --nf-enqueued-fg: #C8A868;
+  --nf-running-bg:  #081C38; --nf-running-fg:  #70B8E8;
+  --nf-done-bg:     #0A2818; --nf-done-fg:     #72C888;
+  --nf-fail-bg:     #380808; --nf-fail-fg:     #E87878;
+  --nf-custom-bg:   #381E00; --nf-custom-fg:   #E8C060;
+
+  color-scheme: dark;
+}
+
+/* ══ Reset ═══════════════════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ══ Base ════════════════════════════════════════════════════════════════════ */
+body {
+  background: var(--nf-bg);
+  color: var(--nf-text);
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+a { color: var(--nf-accent); text-decoration: none; }
+a:hover { color: var(--nf-gold); text-decoration: underline; }
+
+/* ══ Header ══════════════════════════════════════════════════════════════════ */
+.nf-header {
+  background: var(--nf-surface);
+  border-bottom: 1px solid var(--nf-border);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+}
+
+.nf-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--nf-text);
+  letter-spacing: 0.02em;
+  text-decoration: none;
+}
+.nf-brand:hover { color: var(--nf-accent); text-decoration: none; }
+.nf-brand__mark { color: var(--nf-gold); font-size: 13px; line-height: 1; }
+
+/* ══ Folk strip ══════════════════════════════════════════════════════════════
+   Repeating diamond (argyle) — dominant motif in Romanian weaving & embroidery.
+   Crimson diamonds on Byzantine gold, echoing the "ie" blouse border patterns. */
+.nf-folk-strip {
+  height: 10px;
+  background-color: var(--nf-gold);
+  background-image:
+    linear-gradient( 45deg, var(--nf-accent) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--nf-accent) 25%, transparent 25%),
+    linear-gradient( 45deg, transparent 75%, var(--nf-accent) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--nf-accent) 75%);
+  background-size: 10px 10px;
+  background-position: 0 0, 0 5px, 5px -5px, -5px 0;
+}
+
+/* ══ Theme toggle ════════════════════════════════════════════════════════════ */
+.nf-theme-toggle {
+  background: none;
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+  color: var(--nf-muted);
+  cursor: pointer;
+  font-size: 15px;
+  height: 30px;
+  width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.nf-theme-toggle:hover { border-color: var(--nf-gold); color: var(--nf-gold); }
+
+/* ══ Layout ══════════════════════════════════════════════════════════════════ */
+.nf-main { max-width: 1200px; margin: 0 auto; padding: 28px 24px; }
+
+h1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  letter-spacing: -0.01em;
+}
+
+.nf-subtitle {
+  color: var(--nf-muted);
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+/* ══ Card ════════════════════════════════════════════════════════════════════ */
+.nf-card {
+  background: var(--nf-surface);
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+  box-shadow: var(--nf-shadow);
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.nf-card__header {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--nf-border);
+  border-left: 3px solid var(--nf-gold);
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--nf-muted);
+  background: var(--nf-bg);
+}
+
+.nf-card__body { padding: 16px; }
+
+/* ══ Table ═══════════════════════════════════════════════════════════════════ */
+.nf-table { width: 100%; border-collapse: collapse; }
+
+.nf-table th {
+  background: var(--nf-bg);
+  border-bottom: 2px solid var(--nf-border);
+  padding: 9px 12px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--nf-muted);
+  white-space: nowrap;
+}
+
+.nf-table td {
+  border-bottom: 1px solid var(--nf-border);
+  padding: 10px 12px;
+  vertical-align: middle;
+}
+.nf-table tr:last-child td { border-bottom: 0; }
+.nf-table tbody tr:hover td { background: var(--nf-bg); }
+
+/* ══ Monospace ═══════════════════════════════════════════════════════════════ */
+.nf-mono {
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  font-size: 12px;
+  color: var(--nf-muted);
+}
+
+/* ══ Status badge ════════════════════════════════════════════════════════════ */
+.nf-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: var(--nf-radius);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.nf-badge--enqueued  { background: var(--nf-enqueued-bg); color: var(--nf-enqueued-fg); }
+.nf-badge--running   { background: var(--nf-running-bg);  color: var(--nf-running-fg);  }
+.nf-badge--completed { background: var(--nf-done-bg);     color: var(--nf-done-fg);     }
+.nf-badge--failed    { background: var(--nf-fail-bg);     color: var(--nf-fail-fg);     }
+.nf-badge--custom    { background: var(--nf-custom-bg);   color: var(--nf-custom-fg);   }
+
+/* ══ Filter form ═════════════════════════════════════════════════════════════ */
+.nf-filters {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.nf-filters select {
+  padding: 6px 10px;
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+  background: var(--nf-surface);
+  color: var(--nf-text);
+  font-size: 13px;
+  cursor: pointer;
+}
+.nf-filters select:focus { outline: 2px solid var(--nf-gold); outline-offset: 1px; }
+.nf-filters button {
+  padding: 6px 16px;
+  background: var(--nf-accent);
+  color: var(--nf-accent-fg);
+  border: none;
+  border-radius: var(--nf-radius);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.nf-filters button:hover { opacity: 0.88; }
+.nf-filters .nf-clear { padding: 6px 10px; color: var(--nf-muted); font-size: 13px; }
+.nf-filters .nf-clear:hover { color: var(--nf-accent); text-decoration: none; }
+
+/* ══ Pagination ══════════════════════════════════════════════════════════════ */
+.nf-pagination {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-top: 20px;
+  justify-content: center;
+}
+.nf-pagination a,
+.nf-pagination span {
+  padding: 5px 12px;
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+  font-size: 13px;
+}
+.nf-pagination a { color: var(--nf-accent); }
+.nf-pagination a:hover { background: var(--nf-bg); border-color: var(--nf-gold); text-decoration: none; }
+.nf-pagination__current {
+  background: var(--nf-accent) !important;
+  color: var(--nf-accent-fg) !important;
+  border-color: var(--nf-accent) !important;
+}
+.nf-pagination__info { margin-top: 8px; text-align: center; color: var(--nf-muted); font-size: 12px; }
+
+/* ══ Detail layout ═══════════════════════════════════════════════════════════ */
+.nf-detail { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 700px) { .nf-detail { grid-template-columns: 1fr; } }
+
+/* ══ Key/value list ══════════════════════════════════════════════════════════ */
+.nf-kv {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  align-items: baseline;
+}
+.nf-kv dt {
+  color: var(--nf-muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.nf-kv dd {
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  word-break: break-all;
+  color: var(--nf-text);
+}
+
+/* ══ Error block ═════════════════════════════════════════════════════════════ */
+.nf-error {
+  background: var(--nf-fail-bg);
+  color: var(--nf-fail-fg);
+  border-left: 3px solid var(--nf-fail-fg);
+  border-radius: 0 var(--nf-radius) var(--nf-radius) 0;
+  padding: 10px 14px;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+  margin-top: 14px;
+  word-break: break-word;
+}
+
+/* ══ Empty state ═════════════════════════════════════════════════════════════ */
+.nf-empty {
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--nf-muted);
+}
+.nf-empty::before {
+  content: '✦';
+  display: block;
+  font-size: 22px;
+  color: var(--nf-border);
+  margin-bottom: 12px;
+}
+
+/* ══ Back link ═══════════════════════════════════════════════════════════════ */
+.nf-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 16px;
+  color: var(--nf-muted);
+  font-size: 13px;
+}
+.nf-back:hover { color: var(--nf-accent); text-decoration: none; }
+
+/* ══ Progress widget (notificare-progress__*) ════════════════════════════════ */
+.notificare-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.notificare-progress__bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  border: none;
+  background: var(--nf-border);
+  appearance: none;
+}
+.notificare-progress__bar::-webkit-progress-bar   { background: var(--nf-border); border-radius: 3px; }
+.notificare-progress__bar::-webkit-progress-value { background: var(--nf-accent); border-radius: 3px; }
+.notificare-progress__bar::-moz-progress-bar      { background: var(--nf-accent); border-radius: 3px; }
+.notificare-progress__label {
+  font-size: 12px;
+  color: var(--nf-muted);
+  font-family: ui-monospace, monospace;
+}
+.notificare-progress__step {
+  font-size: 12px;
+  color: var(--nf-text);
+  font-weight: 500;
+}
+.notificare-progress__spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--nf-border);
+  border-top-color: var(--nf-accent);
+  border-radius: 50%;
+  animation: nf-spin 0.7s linear infinite;
+}
+@keyframes nf-spin { to { transform: rotate(360deg); } }
+
+/* ══ Notification inbox (notificare-inbox / notificare-notification__*) ══════ */
+.notificare-inbox {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.notificare-inbox > form > button {
+  background: none;
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+  color: var(--nf-muted);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 4px 12px;
+  margin-bottom: 4px;
+}
+.notificare-inbox > form > button:hover { border-color: var(--nf-fail-fg); color: var(--nf-fail-fg); }
+
+.notificare-notification {
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+  padding: 12px 14px;
+  background: var(--nf-surface);
+}
+.notificare-notification--unread { border-left: 3px solid var(--nf-accent); }
+
+.notificare-notification__title {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nf-text);
+  margin-bottom: 4px;
+}
+.notificare-notification__description {
+  font-size: 12px;
+  color: var(--nf-muted);
+  margin-bottom: 8px;
+}
+.notificare-notification__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.notificare-notification__actions button,
+.notificare-notification__actions a {
+  background: none;
+  border: 1px solid var(--nf-border);
+  border-radius: var(--nf-radius);
+  color: var(--nf-muted);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 3px 10px;
+  text-decoration: none;
+}
+.notificare-notification__actions button:hover,
+.notificare-notification__actions a:hover {
+  border-color: var(--nf-accent);
+  color: var(--nf-accent);
+}

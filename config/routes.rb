@@ -1,4 +1,7 @@
 ActiveJob::Notificare::Engine.routes.draw do
+  root to: "executions#index"
+  resources :executions, only: [ :index, :show ]
+
   resources :notifications, only: [] do
     member do
       patch :read

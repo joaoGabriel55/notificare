@@ -9,5 +9,6 @@ module ActiveJob
   module Notificare
     mattr_accessor :current_recipient_proc
     mattr_accessor :parent_controller, default: "ApplicationController"
+    mattr_accessor :authenticate_with
   end
 end

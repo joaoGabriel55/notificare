@@ -1,0 +1,75 @@
+<h1>Job Executions</h1>
+<p class="nf-subtitle">Live registry of background job activity</p>
+
+<%= form_with url: executions_path, method: :get, local: true, class: "nf-filters" do |f| %>
+  <%= f.select :status,
+        [ [ "All statuses", "" ] ] + @statuses.map { |s| [ s.titleize, s ] },
+        { selected: params[:status] } %>
+  <%= f.select :job_class,
+        [ [ "All job classes", "" ] ] + @job_classes.map { |c| [ c, c ] },
+        { selected: params[:job_class] } %>
+  <%= f.submit "Filter" %>
+  <% if params[:status].present? || params[:job_class].present? %>
+    <%= link_to "Clear", executions_path, class: "nf-clear" %>
+  <% end %>
+<% end %>
+
+<div class="nf-card">
+  <% if @executions.any? %>
+    <table class="nf-table">
+      <thead>
+        <tr>
+          <th>Status</th>
+          <th>Job class</th>
+          <th>Job ID</th>
+          <th>Step</th>
+          <th>Progress</th>
+          <th>Started</th>
+          <th>Finished</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @executions.each do |execution| %>
+          <tr>
+            <td><span class="nf-badge nf-badge--<%= execution.status %>"><%= execution.status %></span></td>
+            <td><%= link_to execution.job_class, execution_path(execution) %></td>
+            <td class="nf-mono"><%= truncate(execution.job_id, length: 22) %></td>
+            <td><%= execution.current_step %></td>
+            <td>
+              <% if execution.progress_total %>
+                <span class="nf-mono"><%= execution.progress_current %> / <%= execution.progress_total %></span>
+              <% end %>
+            </td>
+            <td class="nf-mono"><%= execution.started_at&.strftime("%Y-%m-%d %H:%M:%S") %></td>
+            <td class="nf-mono"><%= execution.completed_at&.strftime("%Y-%m-%d %H:%M:%S") %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  <% else %>
+    <div class="nf-empty">No executions found.</div>
+  <% end %>
+</div>
+
+<% if @total_pages > 1 %>
+  <nav class="nf-pagination" aria-label="Pagination">
+    <% if @page > 1 %>
+      <%= link_to "← Prev", executions_path(page: @page - 1, status: params[:status], job_class: params[:job_class]) %>
+    <% end %>
+
+    <% window_start = [ 1, @page - 2 ].max %>
+    <% window_end   = [ @total_pages, @page + 2 ].min %>
+    <% (window_start..window_end).each do |p| %>
+      <% if p == @page %>
+        <span class="nf-pagination__current"><%= p %></span>
+      <% else %>
+        <%= link_to p, executions_path(page: p, status: params[:status], job_class: params[:job_class]) %>
+      <% end %>
+    <% end %>
+
+    <% if @page < @total_pages %>
+      <%= link_to "Next →", executions_path(page: @page + 1, status: params[:status], job_class: params[:job_class]) %>
+    <% end %>
+  </nav>
+  <p class="nf-pagination__info"><%= @total_count %> total</p>
+<% end %>
