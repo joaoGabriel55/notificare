@@ -1,0 +1,66 @@
+<%= link_to "← executions", executions_path, class: "nf-back" %>
+
+<h1><%= @execution.job_class %></h1>
+<p class="nf-subtitle nf-mono"><%= @execution.job_id %></p>
+
+<div class="nf-detail">
+  <div>
+    <div class="nf-card">
+      <div class="nf-card__header">Execution details</div>
+      <div class="nf-card__body">
+        <dl class="nf-kv">
+          <dt>Status</dt>
+          <dd><%= tag.span class: "nf-badge nf-badge--#{@execution.status}" do %><%= @execution.status %><% end %></dd>
+
+          <dt>Current step</dt>
+          <dd><%= @execution.current_step.presence || "—" %></dd>
+
+          <dt>Started at</dt>
+          <dd><%= @execution.started_at&.strftime("%Y-%m-%d %H:%M:%S UTC") || "—" %></dd>
+
+          <dt>Completed at</dt>
+          <dd><%= @execution.completed_at&.strftime("%Y-%m-%d %H:%M:%S UTC") || "—" %></dd>
+        </dl>
+
+        <% if @execution.error.present? %>
+          <div class="nf-error"><%= @execution.error %></div>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="nf-card">
+      <div class="nf-card__header">Live progress</div>
+      <div class="nf-card__body">
+        <%= active_job_notificare(@execution) %>
+      </div>
+    </div>
+  </div>
+</div>
+
+<% if @notifications.any? %>
+  <div class="nf-card">
+    <div class="nf-card__header">Notifications (<%= @notifications.size %>)</div>
+    <table class="nf-table">
+      <thead>
+        <tr>
+          <th>Type</th>
+          <th>Title</th>
+          <th>Description</th>
+          <th>Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @notifications.each do |notification| %>
+          <tr>
+            <td><%= tag.span class: "nf-badge nf-badge--#{notification.event_type}" do %><%= notification.event_type %><% end %></td>
+            <td><%= notification.title %></td>
+            <td><%= notification.description %></td>
+            <td class="nf-mono"><%= notification.created_at.strftime("%Y-%m-%d %H:%M:%S") %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+<% end %>

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Notificare</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <%= csrf_meta_tags %>
+    <script nonce="<%= content_security_policy_nonce %>">
+      (function(){
+        var t=localStorage.getItem('nf-theme')||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+        document.documentElement.dataset.theme=t;
+      })();
+    </script>
+    <%= stylesheet_link_tag "active_job/notificare/engine" %>
+    <%= javascript_importmap_tags if respond_to?(:javascript_importmap_tags) %>
+  </head>
+  <body>
+    <header class="nf-header">
+      <a href="<%= executions_path %>" class="nf-brand">
+        <span class="nf-brand__mark" aria-hidden="true">✦</span>
+        Notificare
+      </a>
+      <button class="nf-theme-toggle" id="nf-theme-toggle" aria-label="Toggle colour theme"></button>
+    </header>
+    <div class="nf-folk-strip" aria-hidden="true"></div>
+    <main class="nf-main">
+      <%= yield %>
+    </main>
+    <script nonce="<%= content_security_policy_nonce %>">
+      (function(){
+        var btn=document.getElementById('nf-theme-toggle');
+        function sync(t){ btn.textContent=t==='dark'?'☀':'☾'; btn.title=t==='dark'?'Switch to light':'Switch to dark'; }
+        sync(document.documentElement.dataset.theme);
+        btn.addEventListener('click',function(){
+          var next=document.documentElement.dataset.theme==='dark'?'light':'dark';
+          document.documentElement.dataset.theme=next;
+          localStorage.setItem('nf-theme',next);
+          sync(next);
+        });
+      })();
+    </script>
+  </body>
+</html>
