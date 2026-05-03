@@ -84,9 +84,15 @@ end
 class GoodJobAdapterTest < AdapterTestHelper::TestCase
   setup do
     ActiveJob::Base.queue_adapter = :good_job
+    # GoodJob defaults to :inline execution in the test environment, which means
+    # perform_later executes the job before enqueue.active_job fires — the same
+    # event-ordering problem as Rails' perform_enqueued_jobs { block } pattern.
+    # Force :external so jobs queue to the DB; GoodJob.perform_inline drains them.
+    GoodJob.configuration.options[:execution_mode] = :external
   end
 
   teardown do
+    GoodJob.configuration.options.delete(:execution_mode)
     ActiveJob::Base.queue_adapter = :test
     GoodJob::Job.delete_all   rescue nil
     GoodJob::Execution.delete_all rescue nil

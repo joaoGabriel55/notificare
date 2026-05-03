@@ -51,7 +51,7 @@ Three test files exercise the projection against real queue adapters. They **do 
 | Adapter | Drain method | Why |
 |---|---|---|
 | `solid_queue` | Iterate `SolidQueue::ReadyExecution.includes(:job)`, call `ActiveJob::Base.execute(job.arguments)`, mark finished | SolidQueue has no built-in synchronous test drain; we use its internal execution path |
-| `good_job` | `GoodJob.perform_inline` | Official GoodJob test-environment drain documented in the GoodJob README |
+| `good_job` | Set `GoodJob.configuration.options[:execution_mode] = :external` in setup (prevents `:inline` default from executing jobs during `perform_later`), then call `GoodJob.perform_inline` to drain | GoodJob defaults to `:inline` in the test environment — without `:external`, `perform_later` executes inline before `enqueue.active_job` fires, leaving the execution row stuck at `enqueued` |
 | `sidekiq` | `Sidekiq.testing!(:fake)` at file load + `Sidekiq::Job.drain_all` per test | Sidekiq fake mode buffers jobs; `drain_all` executes them synchronously via `Sidekiq::ActiveJob::Wrapper#perform` |
 
 **Event-ordering invariant**: all three drains ensure `enqueue.active_job` fires (and creates the Execution row) **before** `perform_start.active_job` / `perform.active_job`. This is the same constraint documented under "Hotwire broadcast internals" above — inline execution during the enqueue instrumentation block would lose the row.
