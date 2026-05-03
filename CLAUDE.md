@@ -302,6 +302,23 @@ Continuation step events are simulated in unit tests using `fake_step(name)` (a 
 
 **Important**: `ActiveJob::Continuable#continue` rescues `StandardError` and calls `retry_job(wait: 5.seconds)` when `continuation.advanced?` is true (at least one step completed). This means a step-raising job does NOT re-raise in tests — `perform_enqueued_jobs` returns without error and the retry is scheduled in the future. Use plain `perform_enqueued_jobs` (no `assert_raises`) for jobs that fail mid-step after making progress.
 
+**`enqueue.active_job` fires even when `around_enqueue` raises**: `ActiveSupport::Notifications.instrument` calls subscribers in `ensure`, so `enqueue.active_job` fires regardless of whether the enqueue block succeeds. This means the Projection creates an Execution row (and a `Turbo::Streams::BroadcastStreamJob` is enqueued) even for a job that raises `ArgumentError` due to a missing `recipient:`. When asserting that a specific job did NOT reach the adapter's enqueue, use `assert_no_enqueued_jobs(only: MyJobClass)` rather than `assert_no_enqueued_jobs` without the `only:` filter — the unfiltered form counts the `BroadcastStreamJob` and will fail spuriously.
+
+### Failure & Recovery tests (`test/active_job/notificare/failure_recovery_test.rb`)
+
+ERD §9 test suite (Ticket 13). Covers all numbered cases:
+
+| Case | Test name prefix | What it tests |
+|---|---|---|
+| Worker kill | `worker_killed_mid-step:` | Simulate crash by never firing `perform.active_job`; assert no duplicate row, `progress_current` preserved, `current_step` accurate on resume |
+| Concurrency | `concurrent_advance!` | 10 advance! threads + 1 status transition thread; final `progress_current` and `status` must both be consistent |
+| Case 1 | `case_1_no_tracks_progress:` | Full lifecycle, zero rows in **both** tables |
+| Case 2 | `case_2_indeterminate_progress:` | Lifecycle completes, `progress_total` stays nil (spinner mode) |
+| Case 3 | `case_3_resume_reuses_row:` | Worker kill + re-enqueue reuses existing DB row; `started_at` preserved |
+| Case 4 | `case_4_missing_recipient:` | `ArgumentError` raised; specific job class not present in adapter's `enqueued_jobs` |
+| Case 5 | `case_5_manual_notify_after_completion:` | Notification row written; Turbo broadcast fires on recipient inbox stream |
+| V1 behavior | `v1_duplicate_failed_notifications:` | Retried failure writes a second `failed` notification (documents current non-idempotent behavior) |
+
 ## Key conventions
 
 - **No monkey-patching.** All hooks go through `ActiveSupport::Notifications`. If an upstream `ActiveJob::Continuation` event is missing, open a PR there.
