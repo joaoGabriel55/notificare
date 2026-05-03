@@ -319,6 +319,27 @@ ERD §9 test suite (Ticket 13). Covers all numbered cases:
 | Case 5 | `case_5_manual_notify_after_completion:` | Notification row written; Turbo broadcast fires on recipient inbox stream |
 | V1 behavior | `v1_duplicate_failed_notifications:` | Retried failure writes a second `failed` notification (documents current non-idempotent behavior) |
 
+## Release process (Ticket 14)
+
+Current version: `0.1.0.alpha.1` (prerelease). The gem is published to rubygems.org via Trusted Publishing (OIDC — no long-lived API keys).
+
+### Files involved
+- `lib/active_job/notificare/version.rb` — single source of truth for VERSION.
+- `notificare.gemspec` — includes `spec.metadata` with `homepage_uri`, `source_code_uri`, `changelog_uri`, `bug_tracker_uri`, `rubygems_mfa_required: "true"`. `spec.files` allow-lists `lib/`, `app/`, `config/`, `LICENSE`, `README.md` only.
+- `CHANGELOG.md` — Keep a Changelog format; top released heading must match `VERSION` (enforced by `test/active_job/notificare/version_test.rb`).
+- `.github/workflows/release.yml` — triggers on `v*` tags; uses `rubygems/release-gem@v1` with `id-token: write` for the OIDC handshake.
+- `LICENSE` — MIT, matches `spec.license`.
+
+### To cut a new release
+1. Bump `VERSION` in `version.rb` and add a heading in `CHANGELOG.md`.
+2. `git commit -am "Release <version>"`, `git tag v<version>`, `git push origin main --tags`.
+3. The workflow builds, exchanges the GitHub OIDC token, and pushes the gem automatically.
+
+### Tests added
+- `test/notificare_gemspec_test.rb` — asserts metadata keys, MIT license, ruby version, file exclusions.
+- `test/active_job/notificare/version_test.rb` — adds rubygems prerelease shape regex test and changelog parity test.
+- Build smoke test CI step in `ci.yml` — runs `gem build` + `gem unpack`, fails if forbidden dirs appear.
+
 ## Key conventions
 
 - **No monkey-patching.** All hooks go through `ActiveSupport::Notifications`. If an upstream `ActiveJob::Continuation` event is missing, open a PR there.

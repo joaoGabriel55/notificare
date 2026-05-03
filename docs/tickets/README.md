@@ -23,6 +23,7 @@ Source of truth: `ERD.md` at repo root.
 | 11 | [Scaffold generator (Surface 2)](11-scaffold-generator.md) | 09 |
 | 12 | [Adapter matrix & CI](12-adapter-matrix-ci.md) | 05, 07 |
 | 13 | [Failure & recovery test suite](13-failure-recovery-tests.md) | 05, 12 |
+| 14 | [Versioning & RubyGems release](14-rubygems-release.md) ✅ | 13 |
 
 ## Global testing rules
 

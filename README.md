@@ -1,6 +1,6 @@
 # Notificare
 
-[![Gem Version](https://img.shields.io/badge/gem-v0.1.0-blue)](https://rubygems.org/gems/notificare)
+[![Gem Version](https://img.shields.io/gem/v/notificare)](https://rubygems.org/gems/notificare)
 [![Ruby](https://img.shields.io/badge/ruby-%3E%3D%203.3-red)](https://www.ruby-lang.org/)
 [![Rails](https://img.shields.io/badge/rails-%3E%3D%208.1-CC0000)](https://rubyonrails.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -44,6 +44,7 @@ Mental model: *Active Storage, but for job progress — plus a small inbox for w
 - [Testing](#testing)
 - [Playing with the gem locally](#playing-with-the-gem-locally)
 - [Contributing](#contributing)
+- [Releases](#releases)
 - [License](#license)
 
 ---
@@ -855,6 +856,35 @@ Bug reports and pull requests are welcome on GitHub at https://github.com/joaoGa
 5. Open a PR with a clear description of the change.
 
 **Design rule:** prefer adding less. The gem's public API is intentionally tiny; anything new should be designed as if it might one day be absorbed into ActiveJob core. *"Would this feel reasonable in Rails itself?"* If not, simplify or remove.
+
+---
+
+## Releases
+
+| Version | Status | Notes |
+|---|---|---|
+| `0.1.0.alpha.N` | Public preview | Breaking changes allowed; feedback wanted. Install with `gem "notificare", "~> 0.1.0.alpha"` or `gem install notificare --pre`. |
+| `0.1.0` | First stable cut | Breaking changes thereafter follow SemVer. |
+
+To cut a release:
+
+```bash
+# 1. Bump version + changelog on a release branch
+$EDITOR lib/active_job/notificare/version.rb CHANGELOG.md
+git commit -am "Release 0.1.0.alpha.1"
+
+# 2. Tag and push — the release workflow takes over
+git tag v0.1.0.alpha.1
+git push origin main --tags
+```
+
+The GitHub Actions release workflow (`release.yml`) uses [Trusted Publishing](https://guides.rubygems.org/trusted-publishing/) (OIDC) — no long-lived API keys required.
+
+To yank a bad release:
+
+```bash
+gem yank notificare -v 0.1.0.alpha.1
+```
 
 ---
 
