@@ -42,6 +42,7 @@ jobs:
       fail-fast: false
       matrix:
         ruby: ["3.3", "3.4"]
+        adapter: [solid_queue, good_job, sidekiq]
         include:
           - adapter: solid_queue
             db: postgres
