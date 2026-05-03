@@ -1,0 +1,54 @@
+<% content_for :title, "Import: #{@csv_import.filename}" %>
+
+<div class="page-header">
+  <h1>Import: <%= @csv_import.filename %></h1>
+  <%= link_to "← All imports", csv_imports_path %>
+</div>
+
+<% if flash[:notice] %>
+  <div class="alert alert--success"><%= flash[:notice] %></div>
+<% end %>
+
+<div class="import-layout">
+  <div class="import-detail">
+    <div class="detail-card">
+      <h2>Status</h2>
+      <dl>
+        <dt>File</dt>
+        <dd><%= @csv_import.filename %></dd>
+
+        <dt>Status</dt>
+        <dd><span class="status-badge status-badge--<%= @csv_import.status %>"><%= @csv_import.status %></span></dd>
+
+        <dt>Total rows</dt>
+        <dd><%= @csv_import.total_rows %></dd>
+
+        <dt>Processed rows</dt>
+        <dd><%= @csv_import.processed_rows %></dd>
+
+        <% if @csv_import.completed_at %>
+          <dt>Completed at</dt>
+          <dd><%= @csv_import.completed_at.strftime("%b %d, %Y %H:%M:%S") %></dd>
+        <% end %>
+      </dl>
+    </div>
+
+    <% if @execution %>
+      <div class="detail-card">
+        <h2>Live Progress</h2>
+        <%= active_job_notificare(@execution) %>
+
+        <% if @execution.error.present? %>
+          <div class="error-detail">
+            <strong>Error:</strong> <%= @execution.error %>
+          </div>
+        <% end %>
+      </div>
+    <% end %>
+  </div>
+
+  <div class="notifications-panel">
+    <h2>Notifications</h2>
+    <%= active_job_notifications(for: current_user) %>
+  </div>
+</div>

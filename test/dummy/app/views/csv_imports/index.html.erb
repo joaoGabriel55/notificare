@@ -1,0 +1,36 @@
+<% content_for :title, "CSV Imports" %>
+
+<div class="page-header">
+  <h1>CSV Imports</h1>
+  <%= link_to "New Import", new_csv_import_path, class: "btn btn-primary" %>
+</div>
+
+<% if @csv_imports.empty? %>
+  <div class="empty-state">
+    <p>No imports yet.</p>
+    <%= link_to "Upload your first CSV", new_csv_import_path %>
+  </div>
+<% else %>
+  <table class="imports-table">
+    <thead>
+      <tr>
+        <th>File</th>
+        <th>Status</th>
+        <th>Rows</th>
+        <th>Imported at</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <% @csv_imports.each do |import| %>
+        <tr>
+          <td><%= import.filename %></td>
+          <td><span class="status-badge status-badge--<%= import.status %>"><%= import.status %></span></td>
+          <td><%= import.processed_rows %> / <%= import.total_rows %></td>
+          <td><%= import.completed_at&.strftime("%b %d, %Y %H:%M") || "—" %></td>
+          <td><%= link_to "View", csv_import_path(import) %></td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+<% end %>
