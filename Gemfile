@@ -17,3 +17,4 @@ gem "solid_queue"
 gem "good_job"
 gem "sidekiq"
 gem "pg", require: false   # only needed when DATABASE_URL points to Postgres
+gem "csv"                  # no longer a default gem in Ruby 3.4

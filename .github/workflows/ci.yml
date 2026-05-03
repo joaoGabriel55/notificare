@@ -84,9 +84,12 @@ jobs:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
 
+      - name: Set DATABASE_URL for Postgres adapters
+        if: matrix.db == 'postgres'
+        run: echo "DATABASE_URL=postgresql://postgres:postgres@localhost/notificare_test" >> $GITHUB_ENV
+
       - name: Run adapter tests
         env:
           QUEUE_ADAPTER: ${{ matrix.adapter }}
-          DATABASE_URL: ${{ matrix.db == 'postgres' && 'postgresql://postgres:postgres@localhost/notificare_test' || '' }}
           REDIS_URL: redis://localhost:6379/1
         run: bundle exec ruby -Itest test/adapters/${{ matrix.adapter }}_test.rb
