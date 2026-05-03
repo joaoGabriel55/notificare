@@ -26,12 +26,42 @@ bundle exec ruby -Itest test/active_job/notificare/projection_test.rb
 # Run a single test by name
 bundle exec ruby -Itest test/active_job/notificare/projection_test.rb -n "test_enqueue_event_creates_an_execution_row_with_enqueued_status"
 
+# Run adapter integration tests (requires adapter gems; see test/adapters/)
+bundle exec ruby -Itest test/adapters/solid_queue_test.rb   # SQLite, SolidQueue
+bundle exec ruby -Itest test/adapters/sidekiq_test.rb       # SQLite, Sidekiq fake mode
+QUEUE_ADAPTER=good_job DATABASE_URL=postgresql://... bundle exec ruby -Itest test/adapters/good_job_test.rb
+
 # Lint
 bundle exec rubocop
 bundle exec rubocop -a   # auto-correct
 ```
 
 Tests run against a SQLite dummy Rails app in `test/dummy/`. Migrations are applied automatically at test boot via `test/test_helper.rb`. SimpleCov enforces **95% minimum coverage** — running a single file will fail the coverage gate; run the full suite to verify.
+
+### Adapter integration tests (`test/adapters/`)
+
+Three test files exercise the projection against real queue adapters. They **do not** use SimpleCov (they run individually, not as part of `rake test`) and have their own test helper (`test/adapters/adapter_test_helper.rb`) that:
+1. Skips SimpleCov
+2. Loads the dummy app environment
+3. Runs Notificare migrations via `AdapterTestHelper.prepare_database!`
+4. Loads adapter-specific schema (e.g. SolidQueue tables from `test/dummy/db/queue_schema.rb`)
+
+**Drain patterns** (the key design decision for each adapter):
+
+| Adapter | Drain method | Why |
+|---|---|---|
+| `solid_queue` | Iterate `SolidQueue::ReadyExecution.includes(:job)`, call `ActiveJob::Base.execute(job.arguments)`, mark finished | SolidQueue has no built-in synchronous test drain; we use its internal execution path |
+| `good_job` | `GoodJob.perform_inline` | Official GoodJob test-environment drain documented in the GoodJob README |
+| `sidekiq` | `Sidekiq.testing!(:fake)` at file load + `Sidekiq::Job.drain_all` per test | Sidekiq fake mode buffers jobs; `drain_all` executes them synchronously via `Sidekiq::ActiveJob::Wrapper#perform` |
+
+**Event-ordering invariant**: all three drains ensure `enqueue.active_job` fires (and creates the Execution row) **before** `perform_start.active_job` / `perform.active_job`. This is the same constraint documented under "Hotwire broadcast internals" above — inline execution during the enqueue instrumentation block would lose the row.
+
+**Database**: adapter tests support `DATABASE_URL` to switch from SQLite to Postgres. Rails merges the URL with `database.yml`'s test section automatically. GoodJob tests require Postgres (uses `jsonb`). SolidQueue and Sidekiq tests work with SQLite.
+
+**CI**: `.github/workflows/ci.yml` runs adapter tests in a separate matrix job (`adapter-tests`) with services for Postgres (port 5432) and Redis (port 6379). Valid matrix combinations:
+- `solid_queue` + `postgres` × `ruby: [3.3, 3.4]`
+- `good_job` + `postgres` × `ruby: [3.3, 3.4]`
+- `sidekiq` + `sqlite` × `ruby: [3.3, 3.4]`
 
 ## Architecture
 
@@ -277,7 +307,7 @@ Continuation step events are simulated in unit tests using `fake_step(name)` (a 
 - **No monkey-patching.** All hooks go through `ActiveSupport::Notifications`. If an upstream `ActiveJob::Continuation` event is missing, open a PR there.
 - **`include ActiveJob::Notificare` is the opt-in.** It auto-includes `ActiveJob::Continuable`. `tracks_progress?` defaults to true after the include; `tracks_progress false` opts out without removing the include.
 - **Rubocop uses `rubocop-rails-omakase`**, configured in `.rubocop.yml`. `test/dummy/` is excluded from linting.
-- The `test/dummy/` Gemfile is separate from the gem's Gemfile; do not add test dependencies there.
+- The `test/dummy/` Gemfile is separate from the gem's Gemfile; do not add test dependencies there. Adapter gems (`solid_queue`, `good_job`, `sidekiq`) belong in the **root Gemfile** (not the dummy app's) so they are loaded at Rails boot and their engines register autoload paths.
 - **`turbo-rails` in the root Gemfile** (added for ticket 08). The gemspec does not declare it as a hard dependency; the models guard broadcast setup with `if defined?(Turbo::Broadcastable)` so the gem loads cleanly without turbo-rails.
 - **Mount alias must be `notificare`**: host apps must mount the engine with `as: :notificare` — the installed partials reference `notificare.read_notification_path(...)`, `notificare.dismiss_notification_path(...)`, and `notificare.clear_notifications_path`. The `notificare_*_path` helpers in `ViewHelpers` (see above) provide an alternative for scaffold-generated or custom views that don't have the engine proxy in scope, but the installed partials still require the alias. Example: `mount ActiveJob::Notificare::Engine, at: "/notificare", as: :notificare`.
 - **`ActiveJob::Notificare.current_recipient_proc`**: mattr on the module. Set in host app initializers to a lambda called via `instance_exec` in the engine's `NotificationsController` to resolve the current recipient. Defaults to `current_user` if the host app controller responds to it. Example: `ActiveJob::Notificare.current_recipient_proc = -> { current_user }`.

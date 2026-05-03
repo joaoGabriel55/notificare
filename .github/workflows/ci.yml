@@ -6,16 +6,87 @@ on:
   pull_request:
 
 jobs:
+  # -------------------------------------------------------------------
+  # Core suite — SQLite, default :test adapter, all Ruby versions
+  # -------------------------------------------------------------------
   test:
+    name: "test / ruby ${{ matrix.ruby }}"
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.3", "3.4"]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Ruby
+      - name: Set up Ruby ${{ matrix.ruby }}
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: "3.3"
+          ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
 
       - name: Run tests
-        run: bin/test
+        run: bundle exec rake test
+
+  # -------------------------------------------------------------------
+  # Adapter matrix — proves the gem works with real queue adapters
+  # Valid combinations:
+  #   solid_queue → postgres   (queue stored in DB, Postgres preferred)
+  #   good_job    → postgres   (queue stored in DB, Postgres preferred)
+  #   sidekiq     → sqlite     (queue stored in Redis; any DB for Notificare)
+  # -------------------------------------------------------------------
+  adapter-tests:
+    name: "adapter / ${{ matrix.adapter }} + ${{ matrix.db }} / ruby ${{ matrix.ruby }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: ["3.3", "3.4"]
+        include:
+          - adapter: solid_queue
+            db: postgres
+          - adapter: good_job
+            db: postgres
+          - adapter: sidekiq
+            db: sqlite
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: notificare_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Ruby ${{ matrix.ruby }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: ${{ matrix.ruby }}
+          bundler-cache: true
+
+      - name: Run adapter tests
+        env:
+          QUEUE_ADAPTER: ${{ matrix.adapter }}
+          DATABASE_URL: ${{ matrix.db == 'postgres' && 'postgresql://postgres:postgres@localhost/notificare_test' || '' }}
+          REDIS_URL: redis://localhost:6379/1
+        run: bundle exec ruby -Itest test/adapters/${{ matrix.adapter }}_test.rb

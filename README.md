@@ -721,13 +721,15 @@ When a worker is killed mid-step, `ActiveJob::Continuation` re-enqueues the job 
 
 ## Adapter Compatibility
 
-Queue-adapter agnostic. Tested against:
+Queue-adapter agnostic. Tested against Solid Queue, GoodJob, and Sidekiq in the CI matrix (Ruby 3.3 and 3.4):
 
-- **Solid Queue** (first-class)
-- **GoodJob**
-- **Sidekiq** (via ActiveJob)
+| Adapter | Database | Notes |
+|---|---|---|
+| **Solid Queue** | Postgres | Queue persisted in DB; drain via `SolidQueue::ReadyExecution` |
+| **GoodJob** | Postgres | Queue persisted in DB; drain via `GoodJob.perform_inline` |
+| **Sidekiq** | SQLite (any) | Queue in Redis; drained via `Sidekiq.testing!(:fake)` + `drain_all` |
 
-Works with any ActiveJob adapter that integrates with `ActiveSupport::Notifications` (which is essentially all of them).
+Works with any ActiveJob adapter that integrates with `ActiveSupport::Notifications` (which is essentially all of them). The gem does not branch on adapter type anywhere in `lib/` — the AS::Notifications projection is identical regardless of which adapter runs the job.
 
 ---
 
