@@ -758,6 +758,23 @@ end
 
 > **Heads-up — broadcast tests:** in inline mode, `enqueue.active_job` fires *after* `perform.active_job`. When asserting broadcasts, call `perform_enqueued_jobs` **without a block** so the enqueue event lands first and rows exist when the job runs. Use two consecutive calls when testing notification broadcasts: the first runs the job (which queues `BroadcastStreamJob`), the second runs the broadcast job.
 
+### Failure & recovery scenarios
+
+The gem ships a dedicated test suite (`test/active_job/notificare/failure_recovery_test.rb`) that locks down all ERD §9 failure scenarios:
+
+| Scenario | What is asserted |
+|---|---|
+| Worker killed mid-step | No duplicate execution row; `progress_current` preserved; `current_step` accurate after resume |
+| Concurrent `advance!` + status transition | All increments recorded (`update_all` SQL atomicity); status consistent |
+| Case 1 — no `tracks_progress` | Zero rows in both `active_job_executions` and `active_job_notifications` after full lifecycle |
+| Case 2 — indeterminate progress | `progress_total` stays `nil`; execution row indicates spinner mode |
+| Case 3 — resume reuses row | Same DB row found after kill and re-enqueue; `started_at` not reset |
+| Case 4 — missing `recipient:` | `ArgumentError` raised; job class absent from `queue_adapter.enqueued_jobs` |
+| Case 5 — manual notify after completion | Row written; Turbo broadcast fires on recipient inbox stream |
+| v1 duplicate notifications | Retried failures accumulate `failed` rows (documented non-idempotent v1 behavior) |
+
+> **`assert_no_enqueued_jobs` gotcha:** `enqueue.active_job` fires in `ensure`, so even a job that raises in `around_enqueue` creates an Execution row and triggers a `Turbo::Streams::BroadcastStreamJob`. Use `assert_no_enqueued_jobs(only: MyJobClass)` when asserting that a specific job was rejected by the adapter — the unfiltered form counts the `BroadcastStreamJob` and fails spuriously.
+
 ### Running the gem's own test suite
 
 ```bash
