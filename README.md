@@ -367,7 +367,7 @@ Jobs that don't opt into notifications are unaffected; they can be enqueued with
 
 ## View Helpers
 
-Two helpers, auto-included into `ActionView::Base` by the engine:
+The following helpers are auto-included into `ActionView::Base` by the engine:
 
 ### `active_job_notificare(execution)`
 
@@ -396,6 +396,18 @@ Renders the recipient's inbox of *visible* (not dismissed) notifications:
 - A **Clear all** action removes every visible notification for the recipient via Turbo Stream, with no redirect.
 - Custom per-notification `actions:` are rendered as links.
 - Subscribes to `["active_job_notifications", recipient.to_gid_param]`.
+
+### Route path helpers
+
+Three context-aware helpers are available for building custom views or scaffold-generated pages that need to link to engine notification actions without relying on the `notificare.` engine proxy:
+
+| Helper | Resolves to |
+|---|---|
+| `notificare_read_notification_path(notification)` | `PATCH /notificare/notifications/:id/read` |
+| `notificare_dismiss_notification_path(notification)` | `PATCH /notificare/notifications/:id/dismiss` |
+| `notificare_clear_notifications_path` | `DELETE /notificare/notifications` |
+
+In engine views these call the bare route helper directly; in host-app views they fall back to `url_for` with the full controller path, so they work regardless of how the engine is mounted. The installed partials (`_notifications.html.erb`, `_notification.html.erb`) still use `notificare.X` directly and require the `as: :notificare` mount alias.
 
 ---
 
@@ -524,8 +536,9 @@ For `ImportJob`, this creates:
 | File | Purpose |
 |---|---|
 | `app/controllers/imports_controller.rb` | `#index` (executions scoped to the current recipient's notification history) and `#show` (detail + per-run notifications). |
-| `app/views/imports/index.html.erb` | List of executions with live `active_job_notificare` progress widgets and the full notification inbox. |
-| `app/views/imports/show.html.erb` | Execution detail with live progress widget and per-run notification list, both subscribed via `turbo_stream_from`. |
+| `app/views/imports/index.html.erb` | List of executions with live `active_job_notificare` progress widgets and the full notification inbox. All strings are I18n `t()` lookups. |
+| `app/views/imports/show.html.erb` | Execution detail with live progress widget and per-run notification list, both subscribed via `turbo_stream_from`. All strings are I18n `t()` lookups. |
+| `config/locales/active_job_notificare_imports.en.yml` | English translations for all view strings (titles, labels, headings, empty states). Override keys in your own locale files. |
 
 A routes snippet is **printed to stdout** — the generator never modifies `config/routes.rb`. Paste it yourself:
 
@@ -538,10 +551,10 @@ resources :imports, only: [:index, :show]
 
 `ImportJob` → `ImportsController`, `imports/` views, `imports_path`. The convention strips the `Job` suffix and pluralizes:
 
-| Argument | Controller | Views directory | Route helpers |
-|---|---|---|---|
-| `ImportJob` | `ImportsController` | `app/views/imports/` | `imports_path`, `import_path(id)` |
-| `ReportExportJob` | `ReportExportsController` | `app/views/report_exports/` | `report_exports_path`, `report_export_path(id)` |
+| Argument | Controller | Views directory | Locale file | Route helpers |
+|---|---|---|---|---|
+| `ImportJob` | `ImportsController` | `app/views/imports/` | `active_job_notificare_imports.en.yml` | `imports_path`, `import_path(id)` |
+| `ReportExportJob` | `ReportExportsController` | `app/views/report_exports/` | `active_job_notificare_report_exports.en.yml` | `report_exports_path`, `report_export_path(id)` |
 
 ### Override flags
 

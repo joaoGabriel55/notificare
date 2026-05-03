@@ -146,6 +146,13 @@ The `notify:` stash is read in the `step.active_job` subscriber (ticket 06). Row
 - **`active_job_notificare(execution)`**: renders `_progress.html.erb`. If `execution.progress_total` is set, renders a `<progress class="notificare-progress__bar">` element with `current/total` counts (`.notificare-progress__label`) and a percentage label. Otherwise renders an indeterminate spinner (`.notificare-progress__spinner`). Both modes show `current_step` as `.notificare-progress__step` if present. Root wrapper is `div.notificare-progress`. Subscribes to the execution's ActionCable stream via `turbo_stream_from "active_job_progress", execution.job_id`.
 - **`active_job_notifications(for: recipient)`**: fetches `Notification.where(recipient:).visible` and renders `_notifications.html.erb`. Root wrapper is `div#active_job_notifications.notificare-inbox`. The inbox partial iterates notifications and delegates each card to `render "active_job/notificare/notification", notification: notification` (`_notification.html.erb`). Each card is wrapped in `turbo_frame_tag dom_id(notification)` so controller actions can replace or remove individual cards without a page redirect. Title is `strong.notificare-notification__title`, description is `p.notificare-notification__description`, action buttons/links live in `div.notificare-notification__actions`. Subscribes via `turbo_stream_from "active_job_notifications", recipient.to_gid_param`.
 
+**Internal route helpers** — three context-aware path helpers are also mixed in:
+- **`notificare_read_notification_path(notification)`**: resolves to `read_notification_path(notification)` in engine context; falls back to `url_for(controller: "active_job/notificare/notifications", action: "read", ...)` in host-app views.
+- **`notificare_dismiss_notification_path(notification)`**: same pattern for the dismiss action.
+- **`notificare_clear_notifications_path`**: same pattern for the clear (collection delete) action.
+
+These helpers are available for scaffold-generated or custom host-app views that need to reference engine routes without the `notificare.` engine proxy. The installed partials (`_notifications.html.erb`, `_notification.html.erb`) still use `notificare.X` directly and require the `as: :notificare` mount alias.
+
 **CSS class reference (`notificare-*` prefix, all stable and intended for host-app overrides)**:
 
 | Element | Class |
@@ -225,8 +232,9 @@ rails generate active_job:notificare:scaffold ImportJob
 **What it does:**
 1. Validates that the named class is loadable and includes `ActiveJob::Notificare`; prints an error and skips generation if not.
 2. Generates `app/controllers/{prefix}_controller.rb` with `#index` (executions for this job class scoped to the recipient's notification history) and `#show` (single execution + per-run notifications).
-3. Generates `app/views/{prefix}/index.html.erb` and `show.html.erb` using `active_job_notificare` / `active_job_notifications` helpers and `turbo_stream_from` subscriptions.
-4. Prints a `resources :prefix, only: [:index, :show]` snippet to stdout — **never** mutates `config/routes.rb`.
+3. Generates `app/views/{prefix}/index.html.erb` and `show.html.erb` using `active_job_notificare` / `active_job_notifications` helpers and `turbo_stream_from` subscriptions. All UI strings use `t()` dot-shorthand lookups — no hardcoded English in the templates.
+4. Generates `config/locales/active_job_notificare_{prefix}.en.yml` with I18n keys for all view strings (title, status/started/completed labels, headings, empty states).
+5. Prints a `resources :prefix, only: [:index, :show]` snippet to stdout — **never** mutates `config/routes.rb`.
 
 **Naming convention:** `ImportJob` → `ImportsController`, `imports/` views, `imports_path`. The `--controller` flag overrides only the class name; the `--prefix` flag overrides the file path and route snippet; both flags are independent.
 
@@ -271,6 +279,6 @@ Continuation step events are simulated in unit tests using `fake_step(name)` (a 
 - **Rubocop uses `rubocop-rails-omakase`**, configured in `.rubocop.yml`. `test/dummy/` is excluded from linting.
 - The `test/dummy/` Gemfile is separate from the gem's Gemfile; do not add test dependencies there.
 - **`turbo-rails` in the root Gemfile** (added for ticket 08). The gemspec does not declare it as a hard dependency; the models guard broadcast setup with `if defined?(Turbo::Broadcastable)` so the gem loads cleanly without turbo-rails.
-- **Mount alias must be `notificare`**: host apps must mount the engine with `as: :notificare` to avoid a naming collision between the `active_job_notificare(execution)` view helper and the default route proxy name. The partials use `notificare.read_notification_path(...)` etc. Example: `mount ActiveJob::Notificare::Engine, at: "/notificare", as: :notificare`.
+- **Mount alias must be `notificare`**: host apps must mount the engine with `as: :notificare` — the installed partials reference `notificare.read_notification_path(...)`, `notificare.dismiss_notification_path(...)`, and `notificare.clear_notifications_path`. The `notificare_*_path` helpers in `ViewHelpers` (see above) provide an alternative for scaffold-generated or custom views that don't have the engine proxy in scope, but the installed partials still require the alias. Example: `mount ActiveJob::Notificare::Engine, at: "/notificare", as: :notificare`.
 - **`ActiveJob::Notificare.current_recipient_proc`**: mattr on the module. Set in host app initializers to a lambda called via `instance_exec` in the engine's `NotificationsController` to resolve the current recipient. Defaults to `current_user` if the host app controller responds to it. Example: `ActiveJob::Notificare.current_recipient_proc = -> { current_user }`.
 - **`ActiveJob::Notificare.authenticate_with`**: mattr on the module (default: `nil`). Set to a lambda evaluated via `instance_exec` in `ExecutionsController` to guard the admin UI. Without a proc in production, requests are rejected with 403. In non-production, requests are allowed without a proc (dev convenience). Example: `ActiveJob::Notificare.authenticate_with = -> { current_user&.admin? }`.
