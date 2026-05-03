@@ -9,160 +9,367 @@
  * Consider organizing styles into separate files for maintainability.
  */
 
-/* ── Reset & base ──────────────────────────────────────────────────────── */
-
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
-  font-size: 15px;
-  line-height: 1.5;
-  background: #f4f5f7;
+  margin: 0;
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  font-size: 16px;
   color: #1a1a2e;
-  padding: 2rem 1rem;
+  background: #f5f5f5;
 }
 
-/* ── Page shell ────────────────────────────────────────────────────────── */
-
-body > * {
-  max-width: 640px;
-  margin-inline: auto;
-}
-
-/* ── Progress widget ───────────────────────────────────────────────────── */
-
-.notificare-progress {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 1rem 1.25rem;
-  margin-bottom: 1.5rem;
+/* Nav */
+.app-nav {
   display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #1a1a2e;
+  color: #fff;
+}
+.app-nav__brand a {
+  color: #e0e0ff;
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 1.1rem;
+}
+.app-nav__links {
+  display: flex;
+  gap: 1rem;
+  margin-left: auto;
+}
+.app-nav__links a {
+  color: #c0c0e0;
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+.app-nav__links a:hover {
+  color: #fff;
+}
+.app-nav__user {
+  color: #a0a0c0;
+  font-size: 0.85rem;
 }
 
-.notificare-progress__bar {
-  width: 100%;
-  height: 8px;
-  border-radius: 4px;
-  appearance: none;
+/* Main */
+.app-main {
+  max-width: 960px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}
+
+/* Page header */
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+.page-header h1 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+.page-header a {
+  color: #5555cc;
+  font-size: 0.9rem;
+}
+
+/* Buttons */
+.btn {
+  display: inline-block;
+  padding: 0.45rem 1rem;
+  border-radius: 6px;
   border: none;
-  background: #e2e8f0;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 500;
+  color: #fff !important;
+}
+.btn-primary {
+  background: #5555cc;
+  color: #fff;
+}
+.btn-primary:hover {
+  background: #4444aa;
+}
+.btn-secondary {
+  background: #e0e0e0;
+  color: #333;
+}
+.btn-secondary:hover {
+  background: #ccc;
+}
+
+/* Alerts */
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+.alert--success {
+  background: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+.alert--error {
+  background: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+/* Table */
+.imports-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
-.notificare-progress__bar::-webkit-progress-bar  { background: #e2e8f0; border-radius: 4px; }
-.notificare-progress__bar::-webkit-progress-value { background: #6366f1; border-radius: 4px; transition: width 0.3s; }
-.notificare-progress__bar::-moz-progress-bar       { background: #6366f1; border-radius: 4px; }
-
-.notificare-progress__label {
+.imports-table th {
+  background: #f0f0f8;
   font-size: 0.8rem;
-  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+.imports-table td {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #eee;
+  font-size: 0.9rem;
+}
+.imports-table a {
+  color: #5555cc;
 }
 
-.notificare-progress__step {
-  font-size: 0.8rem;
+/* Status badge */
+.status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
-  color: #6366f1;
+  text-transform: uppercase;
+}
+.status-badge--pending {
+  background: #fff3cd;
+  color: #856404;
+}
+.status-badge--processing {
+  background: #cce5ff;
+  color: #004085;
+}
+.status-badge--completed {
+  background: #d4edda;
+  color: #155724;
+}
+.status-badge--failed {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* Empty state */
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: #666;
+}
+.empty-state a {
+  color: #5555cc;
+}
+
+/* Upload card */
+.upload-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+}
+.upload-card__info {
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 1px solid #eee;
+}
+.upload-card__info h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+.upload-card__info ul {
+  margin: 0.5rem 0;
+  padding-left: 1.25rem;
+  font-size: 0.9rem;
+}
+.upload-card__sample {
+  margin-top: 0.75rem;
+  background: #f5f5f5;
+  border-radius: 4px;
+  padding: 0.75rem 1rem;
+  font-size: 0.8rem;
+  font-family: monospace;
+}
+
+/* Form */
+.form-group {
+  margin-bottom: 1rem;
+}
+.form-label {
+  display: block;
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+}
+.form-control {
+  display: block;
+  width: 100%;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+.form-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+/* Show page layout */
+.import-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 1.5rem;
+}
+@media (max-width: 720px) {
+  .import-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.detail-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+}
+.detail-card h2 {
+  margin: 0 0 1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #444;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
-/* indeterminate spinner */
-.notificare-progress__spinner {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 3px solid #e2e8f0;
-  border-top-color: #6366f1;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+dl {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 0.4rem 0.75rem;
+  font-size: 0.9rem;
+  margin: 0;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* ── Inbox wrapper ─────────────────────────────────────────────────────── */
-
-.notificare-inbox {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+dt {
+  font-weight: 500;
+  color: #666;
+  align-self: center;
+}
+dd {
+  margin: 0;
 }
 
-/* "Clear all" button at the top of the inbox */
-.notificare-inbox > form {
-  align-self: flex-end;
+.error-detail {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #fef0f0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #c00;
 }
 
-/* ── Notification card ─────────────────────────────────────────────────── */
-
-.notificare-notification {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 1rem 1.25rem;
-  transition: box-shadow 0.15s;
+/* Notifications panel */
+.notifications-panel {
 }
-.notificare-notification:hover { box-shadow: 0 2px 8px rgba(0,0,0,.06); }
-
-.notificare-notification--unread {
-  border-left: 4px solid #6366f1;
-  background: #fafaff;
-}
-
-.notificare-notification__title {
-  display: block;
-  font-size: 0.95rem;
+.notifications-panel h2 {
+  font-size: 1rem;
   font-weight: 600;
-  margin-bottom: 0.2rem;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.75rem;
 }
 
-.notificare-notification__description {
-  font-size: 0.875rem;
-  color: #475569;
-  margin-bottom: 0.6rem;
+/* Override notificare inbox styles for the demo */
+.notificare-inbox {
+  background: #fff;
+  border-radius: 8px;
+  padding: 1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
-
-/* ── Action row ────────────────────────────────────────────────────────── */
-
-.notificare-notification__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: 0.6rem;
-}
-
-/* plain buttons generated by button_to */
-.notificare-notification__actions form,
-.notificare-inbox > form { display: inline; }
-
-.notificare-notification__actions button,
 .notificare-inbox > form button {
   font-size: 0.8rem;
-  font-family: inherit;
-  cursor: pointer;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #f8fafc;
-  color: #334155;
-  padding: 0.2rem 0.65rem;
-  transition: background 0.12s, border-color 0.12s;
+  margin-bottom: 0.75rem;
 }
-.notificare-notification__actions button:hover,
-.notificare-inbox > form button:hover {
-  background: #f1f5f9;
-  border-color: #94a3b8;
+.notificare-notification {
+  padding: 0.75rem;
+  border-radius: 6px;
+  background: #f8f8ff;
+  margin-bottom: 0.5rem;
+  border-left: 3px solid #5555cc;
+}
+.notificare-notification--unread {
+  background: #eeeeff;
+}
+.notificare-notification__title {
+  font-size: 0.9rem;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+.notificare-notification__description {
+  font-size: 0.8rem;
+  color: #555;
+  margin: 0 0 0.5rem;
+}
+.notificare-notification__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.notificare-notification__actions form button {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
 }
 
-/* custom action links */
-.notificare-notification__actions a {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #6366f1;
-  text-decoration: none;
-  padding: 0.2rem 0.65rem;
-  border: 1px solid #c7d2fe;
-  border-radius: 6px;
-  background: #eef2ff;
-  transition: background 0.12s;
+/* Progress widget */
+.notificare-progress {
+  font-size: 0.9rem;
 }
-.notificare-notification__actions a:hover { background: #e0e7ff; }
+.notificare-progress__bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 5px;
+  margin-bottom: 0.4rem;
+}
+.notificare-progress__label {
+  font-size: 0.8rem;
+  color: #555;
+}
+.notificare-progress__step {
+  font-size: 0.8rem;
+  color: #777;
+  margin-top: 0.25rem;
+}

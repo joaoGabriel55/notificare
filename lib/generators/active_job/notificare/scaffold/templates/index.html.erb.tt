@@ -1,0 +1,26 @@
+<%# Subscribes this page to live notification updates for the current user.
+    New notifications arrive as Turbo Stream broadcasts without a page reload. %>
+<%%= turbo_stream_from "active_job_notifications", current_recipient.to_gid_param %>
+
+<h1><%%= t(".title") %></h1>
+
+<%% if @executions.any? %>
+  <%% @executions.each do |execution| %>
+    <div>
+      <%%= active_job_notificare(execution) %>
+      <p>
+        <%%= t(".status_label") %>: <%%= execution.status %>
+        <%% if execution.started_at %>
+          &mdash; <%%= t(".started_label") %>: <%%= execution.started_at.strftime("%Y-%m-%d %H:%M") %>
+        <%% end %>
+      </p>
+      <%%= link_to t(".details"), <%= resource_name %>_path(execution) %>
+    </div>
+  <%% end %>
+<%% else %>
+  <p><%%= t(".empty") %></p>
+<%% end %>
+
+<%# Renders the recipient's notification inbox with live updates and
+    inline Mark-as-read / Dismiss actions via Turbo Streams. %>
+<%%= active_job_notifications(for: current_recipient) %>

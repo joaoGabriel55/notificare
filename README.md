@@ -34,6 +34,7 @@ Mental model: *Active Storage, but for job progress — plus a small inbox for w
 - [Hotwire / Turbo Streams](#hotwire--turbo-streams)
 - [Notification Actions (Inbox)](#notification-actions-inbox)
 - [Admin UI (Mounted Engine)](#admin-ui-mounted-engine)
+- [Scaffold Generator](#scaffold-generator)
 - [Configuration](#configuration)
 - [Internationalization (I18n)](#internationalization-i18n)
 - [Customizing the markup](#customizing-the-markup)
@@ -366,7 +367,7 @@ Jobs that don't opt into notifications are unaffected; they can be enqueued with
 
 ## View Helpers
 
-Two helpers, auto-included into `ActionView::Base` by the engine:
+The following helpers are auto-included into `ActionView::Base` by the engine:
 
 ### `active_job_notificare(execution)`
 
@@ -395,6 +396,18 @@ Renders the recipient's inbox of *visible* (not dismissed) notifications:
 - A **Clear all** action removes every visible notification for the recipient via Turbo Stream, with no redirect.
 - Custom per-notification `actions:` are rendered as links.
 - Subscribes to `["active_job_notifications", recipient.to_gid_param]`.
+
+### Route path helpers
+
+Three context-aware helpers are available for building custom views or scaffold-generated pages that need to link to engine notification actions without relying on the `notificare.` engine proxy:
+
+| Helper | Resolves to |
+|---|---|
+| `notificare_read_notification_path(notification)` | `PATCH /notificare/notifications/:id/read` |
+| `notificare_dismiss_notification_path(notification)` | `PATCH /notificare/notifications/:id/dismiss` |
+| `notificare_clear_notifications_path` | `DELETE /notificare/notifications` |
+
+In engine views these call the bare route helper directly; in host-app views they fall back to `url_for` with the full controller path, so they work regardless of how the engine is mounted. The installed partials (`_notifications.html.erb`, `_notification.html.erb`) still use `notificare.X` directly and require the `as: :notificare` mount alias.
 
 ---
 
@@ -507,6 +520,81 @@ The lambda is evaluated via `instance_exec` inside the `ExecutionsController`, s
 ### Styling
 
 The engine ships a small stylesheet (`active_job/notificare/engine.css`) included via the engine's own layout. The layout also loads `javascript_importmap_tags` if `importmap-rails` is present, enabling Turbo live updates on the show page. Host apps that use a different JS bundler should ensure Turbo is loaded on the page before visiting the admin UI.
+
+---
+
+## Scaffold Generator
+
+For building your own product pages (e.g. "My Imports") that embed live progress and notifications, the scaffold generator creates a controller and views wired to Turbo Streams:
+
+```bash
+bin/rails generate active_job:notificare:scaffold ImportJob
+```
+
+For `ImportJob`, this creates:
+
+| File | Purpose |
+|---|---|
+| `app/controllers/imports_controller.rb` | `#index` (executions scoped to the current recipient's notification history) and `#show` (detail + per-run notifications). |
+| `app/views/imports/index.html.erb` | List of executions with live `active_job_notificare` progress widgets and the full notification inbox. All strings are I18n `t()` lookups. |
+| `app/views/imports/show.html.erb` | Execution detail with live progress widget and per-run notification list, both subscribed via `turbo_stream_from`. All strings are I18n `t()` lookups. |
+| `config/locales/active_job_notificare_imports.en.yml` | English translations for all view strings (titles, labels, headings, empty states). Override keys in your own locale files. |
+
+A routes snippet is **printed to stdout** — the generator never modifies `config/routes.rb`. Paste it yourself:
+
+```ruby
+# config/routes.rb
+resources :imports, only: [:index, :show]
+```
+
+### Naming convention
+
+`ImportJob` → `ImportsController`, `imports/` views, `imports_path`. The convention strips the `Job` suffix and pluralizes:
+
+| Argument | Controller | Views directory | Locale file | Route helpers |
+|---|---|---|---|---|
+| `ImportJob` | `ImportsController` | `app/views/imports/` | `active_job_notificare_imports.en.yml` | `imports_path`, `import_path(id)` |
+| `ReportExportJob` | `ReportExportsController` | `app/views/report_exports/` | `active_job_notificare_report_exports.en.yml` | `report_exports_path`, `report_export_path(id)` |
+
+### Override flags
+
+```bash
+# Override just the controller class name
+bin/rails generate active_job:notificare:scaffold ImportJob --controller=MyImportsController
+
+# Override the route/view prefix
+bin/rails generate active_job:notificare:scaffold ImportJob --prefix=my_imports
+
+# Both flags are independent
+bin/rails generate active_job:notificare:scaffold ImportJob \
+  --controller=MyImportsController --prefix=my_imports
+```
+
+### `current_recipient`
+
+The generated controller exposes a `current_recipient` helper method (via `helper_method`) used by both actions and views to scope executions and notifications:
+
+```ruby
+private
+
+# TODO: replace with however your app exposes the signed-in user/account.
+def current_recipient
+  current_notificare_recipient || current_user
+end
+helper_method :current_recipient
+```
+
+Replace the body with whatever your app uses (`current_account`, `Current.user`, etc.).
+
+### Validation
+
+The generator validates that the named class exists and includes `ActiveJob::Notificare`. If the class is missing or doesn't include the concern, it prints an error and creates no files:
+
+```
+$ bin/rails generate active_job:notificare:scaffold String
+error  String does not include ActiveJob::Notificare.
+       Add `include ActiveJob::Notificare` to the job class and re-run the generator.
+```
 
 ---
 

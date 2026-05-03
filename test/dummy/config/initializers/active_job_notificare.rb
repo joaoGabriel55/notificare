@@ -6,19 +6,8 @@
 # `ActiveJob::Notificare` in a job pulls in Continuation, the step DSL, and the
 # notification primitives.
 #
-# ActiveJob::Notificare.configure do |config|
-#   # How long to retain completed and failed execution records.
-#   # Default: 7.days — Set to nil to keep indefinitely.
-#   # config.execution_retention = 7.days
-#
-#   # Broadcast real-time progress updates via Turbo Streams.
-#   # Requires Action Cable to be configured in your application.
-#   # config.broadcast_progress = true
-#
-#   # Broadcast real-time notification updates via Turbo Streams.
-#   # config.broadcast_notifications = true
-#
-#   # Mount path for the engine admin UI.
-#   # Default: "/notificare"
-#   # config.mount_path = "/notificare"
-# end
+# Allow access to the engine admin UI in all environments for this demo.
+ActiveJob::Notificare.authenticate_with = -> { true }
+
+# Resolve the current recipient for the engine's notifications controller.
+ActiveJob::Notificare.current_recipient_proc = -> { current_user }

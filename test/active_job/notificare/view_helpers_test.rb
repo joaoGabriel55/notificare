@@ -2,6 +2,7 @@ require "test_helper"
 
 class ActiveJob::Notificare::ViewHelpersTest < ActionView::TestCase
   include ActiveJob::Notificare::ViewHelpers
+  helper ActiveJob::Notificare::Engine.routes.url_helpers
 
   test "active_job_notificare renders progress element in determinate mode" do
     execution = ActiveJob::Notificare::Execution.new(

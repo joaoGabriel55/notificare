@@ -48,7 +48,9 @@ lib/
   active_job/notificare/progress_handle.rb  # ProgressHandle — total(n) / advance!(by=1)
   active_job/notificare/recipient.rb        # Recipient — around_enqueue enforcement of recipient: kwarg
   active_job/notificare/version.rb
-  generators/…                           # install generator (active_job:notificare:install)
+  generators/active_job/notificare/
+    install/                             # active_job:notificare:install — migration, initializer, view partials
+    scaffold/                            # active_job:notificare:scaffold <JobClass> — controller + views for embedded product pages
 app/
   assets/stylesheets/active_job/notificare/
     engine.css                    # minimal BEM stylesheet for the admin UI (nf-* class prefix)
@@ -144,6 +146,13 @@ The `notify:` stash is read in the `step.active_job` subscriber (ticket 06). Row
 - **`active_job_notificare(execution)`**: renders `_progress.html.erb`. If `execution.progress_total` is set, renders a `<progress class="notificare-progress__bar">` element with `current/total` counts (`.notificare-progress__label`) and a percentage label. Otherwise renders an indeterminate spinner (`.notificare-progress__spinner`). Both modes show `current_step` as `.notificare-progress__step` if present. Root wrapper is `div.notificare-progress`. Subscribes to the execution's ActionCable stream via `turbo_stream_from "active_job_progress", execution.job_id`.
 - **`active_job_notifications(for: recipient)`**: fetches `Notification.where(recipient:).visible` and renders `_notifications.html.erb`. Root wrapper is `div#active_job_notifications.notificare-inbox`. The inbox partial iterates notifications and delegates each card to `render "active_job/notificare/notification", notification: notification` (`_notification.html.erb`). Each card is wrapped in `turbo_frame_tag dom_id(notification)` so controller actions can replace or remove individual cards without a page redirect. Title is `strong.notificare-notification__title`, description is `p.notificare-notification__description`, action buttons/links live in `div.notificare-notification__actions`. Subscribes via `turbo_stream_from "active_job_notifications", recipient.to_gid_param`.
 
+**Internal route helpers** — three context-aware path helpers are also mixed in:
+- **`notificare_read_notification_path(notification)`**: resolves to `read_notification_path(notification)` in engine context; falls back to `url_for(controller: "active_job/notificare/notifications", action: "read", ...)` in host-app views.
+- **`notificare_dismiss_notification_path(notification)`**: same pattern for the dismiss action.
+- **`notificare_clear_notifications_path`**: same pattern for the clear (collection delete) action.
+
+These helpers are available for scaffold-generated or custom host-app views that need to reference engine routes without the `notificare.` engine proxy. The installed partials (`_notifications.html.erb`, `_notification.html.erb`) still use `notificare.X` directly and require the `as: :notificare` mount alias.
+
 **CSS class reference (`notificare-*` prefix, all stable and intended for host-app overrides)**:
 
 | Element | Class |
@@ -209,6 +218,28 @@ Authorization: `set_notification` scopes the find to `Notification.where(recipie
 - **Event ordering gotcha**: in inline mode (`perform_enqueued_jobs { block }`), `enqueue.active_job` fires *after* `perform.active_job` (because `instrument` notifies subscribers after the block completes). This means the Projection's Execution row doesn't exist when `perform.active_job` fires for the same request. Always use `perform_enqueued_jobs` *without* a block in broadcast integration tests so the enqueue event fires first and the Execution/Notification rows exist when the job runs. Use two consecutive `perform_enqueued_jobs` calls when testing notification broadcasts: first to run the job (which queues `BroadcastStreamJob`), second to run the broadcast job.
 - `assert_broadcasts(stream, count) { block }` from `ActionCable::TestHelper` takes the **unsigned** stream name (e.g., `"active_job_progress:#{job_id}"`), not the signed token from `Turbo::StreamsChannel.signed_stream_name`.
 
+### Scaffold generator
+
+`lib/generators/active_job/notificare/scaffold/scaffold_generator.rb` — `Rails::Generators::NamedBase` subclass invoked as:
+
+```bash
+rails generate active_job:notificare:scaffold ImportJob
+# options:
+#   --controller=MyImportsController  override the generated controller class name
+#   --prefix=my_imports               override the route/view directory prefix
+```
+
+**What it does:**
+1. Validates that the named class is loadable and includes `ActiveJob::Notificare`; prints an error and skips generation if not.
+2. Generates `app/controllers/{prefix}_controller.rb` with `#index` (executions for this job class scoped to the recipient's notification history) and `#show` (single execution + per-run notifications).
+3. Generates `app/views/{prefix}/index.html.erb` and `show.html.erb` using `active_job_notificare` / `active_job_notifications` helpers and `turbo_stream_from` subscriptions. All UI strings use `t()` dot-shorthand lookups — no hardcoded English in the templates.
+4. Generates `config/locales/active_job_notificare_{prefix}.en.yml` with I18n keys for all view strings (title, status/started/completed labels, headings, empty states).
+5. Prints a `resources :prefix, only: [:index, :show]` snippet to stdout — **never** mutates `config/routes.rb`.
+
+**Naming convention:** `ImportJob` → `ImportsController`, `imports/` views, `imports_path`. The `--controller` flag overrides only the class name; the `--prefix` flag overrides the file path and route snippet; both flags are independent.
+
+**`current_recipient`:** the generated controller defines a private `current_recipient` helper (exposed via `helper_method`) that defaults to `current_notificare_recipient || current_user`. Developers replace this with their own auth method.
+
 ### Test dummy app
 
 `test/dummy/` is a full Rails app used only for tests. Its migration (`test/dummy/db/migrate/`) defines both tables. Test jobs live in `test/dummy/app/jobs/`:
@@ -223,7 +254,9 @@ Authorization: `set_notification` scopes the find to `Notification.where(recipie
 - `FailingStepNotifyTestJob` — `:ok_step` (notify: :ok_done) succeeds; `:boom_step` raises
 - `ManualNotifyTestJob` — uses `notify_on :completed`; calls `notify(title:, description:, metadata:, actions:)` inside `perform` for ticket-07 coverage
 - `UsesNotifyTestJob` — calls `uses_notify!` at class definition; used to verify enqueue-time enforcement before any instance has run
+- `ScaffoldDemoJob` — minimal job used for scaffold generator tests; includes `ActiveJob::Notificare`, `notify_on :completed, :failed`, one `step(:process, notify: :processed)`
 - `HomeController` (`test/dummy/app/controllers/home_controller.rb`) — renders both view helpers for integration tests; accepts `user_id` and `job_id` params
+- `ScaffoldDemosController` / `app/views/scaffold_demos/` — pre-generated scaffold (output of `rails generate active_job:notificare:scaffold ScaffoldDemoJob`) committed as the smoke test fixture; covered by `scaffold_smoke_test.rb`
 
 **Dummy app browser JS setup**: the dummy app generator originally ran with `--skip-javascript`, so it had no `app/javascript/` or `config/importmap.rb`. Turbo wasn't loaded in the browser, which made `button_to` form submissions in the inbox do full-page navigation instead of in-place Turbo Stream swaps. Fixed by wiring up the standard Rails 8 importmap setup:
 - `test/dummy/config/importmap.rb` pins `@hotwired/turbo-rails`, `@hotwired/stimulus`, `@hotwired/stimulus-loading`, plus `pin_all_from "app/javascript/controllers"`
@@ -246,6 +279,6 @@ Continuation step events are simulated in unit tests using `fake_step(name)` (a 
 - **Rubocop uses `rubocop-rails-omakase`**, configured in `.rubocop.yml`. `test/dummy/` is excluded from linting.
 - The `test/dummy/` Gemfile is separate from the gem's Gemfile; do not add test dependencies there.
 - **`turbo-rails` in the root Gemfile** (added for ticket 08). The gemspec does not declare it as a hard dependency; the models guard broadcast setup with `if defined?(Turbo::Broadcastable)` so the gem loads cleanly without turbo-rails.
-- **Mount alias must be `notificare`**: host apps must mount the engine with `as: :notificare` to avoid a naming collision between the `active_job_notificare(execution)` view helper and the default route proxy name. The partials use `notificare.read_notification_path(...)` etc. Example: `mount ActiveJob::Notificare::Engine, at: "/notificare", as: :notificare`.
+- **Mount alias must be `notificare`**: host apps must mount the engine with `as: :notificare` — the installed partials reference `notificare.read_notification_path(...)`, `notificare.dismiss_notification_path(...)`, and `notificare.clear_notifications_path`. The `notificare_*_path` helpers in `ViewHelpers` (see above) provide an alternative for scaffold-generated or custom views that don't have the engine proxy in scope, but the installed partials still require the alias. Example: `mount ActiveJob::Notificare::Engine, at: "/notificare", as: :notificare`.
 - **`ActiveJob::Notificare.current_recipient_proc`**: mattr on the module. Set in host app initializers to a lambda called via `instance_exec` in the engine's `NotificationsController` to resolve the current recipient. Defaults to `current_user` if the host app controller responds to it. Example: `ActiveJob::Notificare.current_recipient_proc = -> { current_user }`.
 - **`ActiveJob::Notificare.authenticate_with`**: mattr on the module (default: `nil`). Set to a lambda evaluated via `instance_exec` in `ExecutionsController` to guard the admin UI. Without a proc in production, requests are rejected with 403. In non-production, requests are allowed without a proc (dev convenience). Example: `ActiveJob::Notificare.authenticate_with = -> { current_user&.admin? }`.

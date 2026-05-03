@@ -1,0 +1,39 @@
+<% content_for :title, "New CSV Import" %>
+
+<div class="page-header">
+  <h1>Upload CSV</h1>
+  <%= link_to "← Back to imports", csv_imports_path %>
+</div>
+
+<div class="upload-card">
+  <div class="upload-card__info">
+    <h3>Expected CSV format</h3>
+    <p>Your CSV must include the following columns:</p>
+    <ul>
+      <li><strong>name</strong> — contact's full name</li>
+      <li><strong>email</strong> — contact's email address</li>
+      <li><em>phone</em> — optional phone number</li>
+    </ul>
+    <div class="upload-card__sample">
+      <code>name,email,phone<br>
+      Alice Smith,alice@example.com,+1-555-0101<br>
+      Bob Jones,bob@example.com,</code>
+    </div>
+  </div>
+
+  <%= form_with url: csv_imports_path, multipart: true do |f| %>
+    <% if flash[:alert] %>
+      <div class="alert alert--error"><%= flash[:alert] %></div>
+    <% end %>
+
+    <div class="form-group">
+      <%= f.label :file, "Choose a CSV file", class: "form-label" %>
+      <%= f.file_field :file, name: "csv_import[file]", accept: ".csv", class: "form-control" %>
+    </div>
+
+    <div class="form-actions">
+      <%= f.submit "Start Import", class: "btn btn-primary" %>
+      <%= link_to "Cancel", csv_imports_path, class: "btn btn-secondary" %>
+    </div>
+  <% end %>
+</div>
