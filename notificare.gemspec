@@ -12,7 +12,16 @@ Gem::Specification.new do |spec|
   spec.homepage    = "https://github.com/joaoGabriel55/notificare"
   spec.license     = "MIT"
 
-  spec.required_ruby_version = ">= 3.3"
+  spec.required_ruby_version    = ">= 3.3"
+  spec.required_rubygems_version = ">= 3.5"
+
+  spec.metadata = {
+    "homepage_uri"        => "https://github.com/joaoGabriel55/notificare",
+    "source_code_uri"     => "https://github.com/joaoGabriel55/notificare",
+    "changelog_uri"       => "https://github.com/joaoGabriel55/notificare/blob/v0.1.0.alpha.1/CHANGELOG.md",
+    "bug_tracker_uri"     => "https://github.com/joaoGabriel55/notificare/issues",
+    "rubygems_mfa_required" => "true"
+  }
 
   spec.files = Dir[
     "lib/**/*",
