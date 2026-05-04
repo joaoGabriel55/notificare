@@ -5,7 +5,7 @@
 [![Rails](https://img.shields.io/badge/rails-%3E%3D%208.1-CC0000)](https://rubyonrails.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Notificare** (Romanian: *"to notify"*) is a Rails engine that adds **persisted progress tracking** and a **durable notification inbox** to your ActiveJob jobs — with a Hotwire UI scaffold included.
+**Notificare** (Romanian: *"to notify"*) is a Rails engine that adds **persisted progress tracking** and a **durable notification inbox** to your ActiveJob jobs — with a Hotwire/turbo-rails UI scaffold included.
 
 It is a projection layer over [`ActiveJob::Continuation`](https://api.rubyonrails.org/classes/ActiveJob/Continuation.html) (shipped in Rails 8.1). Continuation owns execution and step-resume state; Notificare owns the persisted projection of progress, the notification inbox, and the realtime UI for both. **Step boundaries become a state machine that drives notifications** — no manual broadcast plumbing.
 
