@@ -14,7 +14,19 @@ Two concepts, intentionally separate:
 - **Progress** (`active_job_executions`) — *transient* live state of a running job (status, current step, current/total).
 - **Notifications** (`active_job_notifications`) — *durable* user-facing records of job events: completed, failed, custom per-step milestones.
 
-Mental model: *Active Storage, but for job progress — plus a small inbox for what those jobs report back to the user.*
+## Screenshots
+
+**Admin pages**
+
+<img width="2850" height="1191" alt="image" src="https://github.com/user-attachments/assets/7aa91b41-7d19-458d-98bf-e56ecf42a34f" />
+
+<img width="2855" height="826" alt="image" src="https://github.com/user-attachments/assets/fe8126a4-3a48-433f-9006-2c1d2806505f" />
+
+---
+
+**Product Example - CSV Upload**
+
+https://github.com/user-attachments/assets/38eae72c-9cab-433d-8ddc-2951d2da58ac
 
 ---
 
