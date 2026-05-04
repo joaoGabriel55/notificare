@@ -1,3 +1,5 @@
+<img width="100" height="100" alt="notificare" src="https://github.com/user-attachments/assets/3bdae346-abce-4bc2-92d4-0459388b01a6" />
+
 # Notificare
 
 [![Gem Version](https://img.shields.io/gem/v/notificare)](https://rubygems.org/gems/notificare)
